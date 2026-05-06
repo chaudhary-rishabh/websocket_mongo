@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"C:\\\\Users\\\\Asus\\\\Desktop\\\\other\\\\Project\\\\websocket\" && npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --no-git 2>&1)",
+      "Bash(cd \"C:\\\\Users\\\\Asus\\\\Desktop\\\\other\\\\Project\\\\websocket\" && npm install zustand zod next-auth@beta 2>&1)",
+      "Bash(cd \"C:\\\\Users\\\\Asus\\\\Desktop\\\\other\\\\Project\\\\websocket\" && npx shadcn@latest init --defaults 2>&1)",
+      "Bash(cd \"C:\\\\Users\\\\Asus\\\\Desktop\\\\other\\\\Project\\\\websocket\" && npx shadcn@latest add card input label form toast 2>&1)",
+      "Bash(cd \"C:\\\\Users\\\\Asus\\\\Desktop\\\\other\\\\Project\\\\websocket\" && npx tsc --noEmit 2>&1)",
+      "Bash(node -e \"console.log\\(require\\('crypto'\\).randomBytes\\(32\\).toString\\('base64url'\\)\\)\")",
+      "Bash(cd \"C:\\\\Users\\\\Asus\\\\Desktop\\\\other\\\\Project\\\\websocket\" && npm list framer-motion date-fns 2>&1 | head -20)",
+      "Bash(cd \"C:\\\\Users\\\\Asus\\\\Desktop\\\\other\\\\Project\\\\websocket\" && npm run build 2>&1)",
+      "Bash(cd \"C:\\\\Users\\\\Asus\\\\Desktop\\\\other\\\\Project\\\\websocket\" && npx tsc --noEmit 2>&1; echo \"EXIT:$?\")"
+    ]
+  }
+}

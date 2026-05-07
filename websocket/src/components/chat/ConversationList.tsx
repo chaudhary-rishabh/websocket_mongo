@@ -278,20 +278,25 @@ export default function ConversationList({
   onDeleteHiddenConv,
 }: ConversationListProps) {
   const { activeConversationId, setActiveConversationId, realConversations } = useChatStore()
+  const { data: session } = useSession()
   const router = useRouter()
 
   // Adapt real API conversations to local Conversation shape
   const adaptedReal: Conversation[] = realConversations
     .filter((rc) => Array.isArray(rc.members))
     .map((rc) => {
-      const memberNames = rc.members.map((p) => p.displayName).join(', ')
+      const isDm = rc.type === 'dm'
+      // For DMs show only the OTHER person
+      const other = isDm ? rc.members.find((p) => p._id !== session?.user?.id) : null
+      const displayName = isDm
+        ? (other?.displayName ?? 'Unknown')
+        : (rc.name ?? rc.members.map((p) => p.displayName).join(', '))
       return {
         id: rc._id,
-        // backend uses 'dm', local schema uses 'direct'
-        type: rc.type === 'dm' ? 'direct' : 'group',
-        name: rc.name ?? memberNames,
-        avatar: rc.avatar,
-        initials: (rc.name ?? memberNames).slice(0, 2).toUpperCase(),
+        type: isDm ? 'direct' : 'group',
+        name: displayName,
+        avatar: isDm ? other?.avatar : rc.avatar,
+        initials: displayName.slice(0, 2).toUpperCase(),
         members: rc.members.map((p) => p._id),
         onlineCount: rc.members.filter((p) => p.isOnline).length,
         lastMessage: rc.lastMessage?.content ?? '',

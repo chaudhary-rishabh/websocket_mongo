@@ -27,9 +27,13 @@ type Tab = 'people' | 'groups'
 function SidebarContent({
   onClose,
   showClose = false,
+  collapsed = false,
+  onToggleCollapse,
 }: {
   onClose?: () => void
   showClose?: boolean
+  collapsed?: boolean
+  onToggleCollapse?: () => void
 }) {
   const { setSearchOpen } = useChatStore()
   const { data: session } = useSession()
@@ -90,7 +94,7 @@ function SidebarContent({
           </div>
         )}
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           {isSelectMode ? (
             <button
               onClick={cancelSelect}
@@ -107,6 +111,29 @@ function SidebarContent({
               >
                 <SquarePen className="w-4 h-4" />
               </button>
+
+              {/* Desktop collapse button — in header, correct icon per state */}
+              {onToggleCollapse && (
+                <button
+                  onClick={onToggleCollapse}
+                  title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                  className="hidden md:flex p-2 rounded-full hover:bg-[#EDE4D6] transition-colors text-[#9A8474] hover:text-[#7C5C3E]"
+                >
+                  <motion.div
+                    key={collapsed ? 'open' : 'close'}
+                    initial={{ opacity: 0, scale: 0.7 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    {collapsed
+                      ? <PanelLeftOpen  className="w-4 h-4" />
+                      : <PanelLeftClose className="w-4 h-4" />
+                    }
+                  </motion.div>
+                </button>
+              )}
+
+              {/* Mobile close drawer button */}
               {showClose && (
                 <button
                   onClick={onClose}
@@ -115,6 +142,7 @@ function SidebarContent({
                   <X className="w-4 h-4" />
                 </button>
               )}
+
               <Link href="/profile" className="rounded-full">
                 <Avatar
                   src={session?.user?.avatar ?? session?.user?.image ?? CURRENT_USER.avatar}
@@ -144,30 +172,27 @@ function SidebarContent({
         </div>
       )}
 
-      {/* ── People / Groups toggle ── */}
+      {/* ── People / Groups toggle with smooth sliding indicator ── */}
       {!isSelectMode && (
         <div className="px-4 pb-3">
-          <div className="flex items-center bg-[#EDE4D6] rounded-2xl p-1 gap-1">
-            <button
-              onClick={() => setActiveTab('people')}
-              className={`flex-1 text-xs font-semibold py-1.5 rounded-xl transition-all duration-200 ${
-                activeTab === 'people'
-                  ? 'bg-white text-[#7C5C3E] shadow-sm'
-                  : 'text-[#9A8474] hover:text-[#7C5C3E]'
-              }`}
-            >
-              People
-            </button>
-            <button
-              onClick={() => setActiveTab('groups')}
-              className={`flex-1 text-xs font-semibold py-1.5 rounded-xl transition-all duration-200 ${
-                activeTab === 'groups'
-                  ? 'bg-white text-[#7C5C3E] shadow-sm'
-                  : 'text-[#9A8474] hover:text-[#7C5C3E]'
-              }`}
-            >
-              Groups
-            </button>
+          <div className="relative flex items-center bg-[#EDE4D6] rounded-2xl p-1 gap-1">
+            {/* Sliding background pill */}
+            <motion.div
+              className="absolute top-1 bottom-1 rounded-xl bg-white shadow-sm"
+              style={{ width: 'calc(50% - 6px)' }}
+              animate={{ x: activeTab === 'people' ? 0 : 'calc(100% + 4px)' }}
+              transition={{ type: 'spring', stiffness: 500, damping: 40, mass: 0.8 }}
+            />
+            {(['people', 'groups'] as Tab[]).map((t) => (
+              <button
+                key={t}
+                onClick={() => setActiveTab(t)}
+                className="relative flex-1 text-xs font-semibold py-1.5 rounded-xl z-10 transition-colors duration-200"
+                style={{ color: activeTab === t ? '#7C5C3E' : '#9A8474' }}
+              >
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </button>
+            ))}
           </div>
         </div>
       )}
@@ -226,7 +251,6 @@ function SidebarContent({
             transition={{ type: 'spring', stiffness: 400, damping: 36 }}
             className="flex-shrink-0 border-t border-[#E0D5C5] px-4 py-3 flex items-center justify-between rounded-b-[25px]"
           >
-            {/* Left: Settings */}
             <Link
               href="/profile"
               className="group flex items-center gap-2 p-2 rounded-2xl hover:bg-[#EDE4D6] transition-all duration-200"
@@ -240,7 +264,6 @@ function SidebarContent({
               </span>
             </Link>
 
-            {/* Right: Logout */}
             <button
               onClick={() => logoutAction()}
               className="group flex items-center gap-2 p-2 rounded-2xl hover:bg-red-50 transition-all duration-200"
@@ -260,37 +283,6 @@ function SidebarContent({
   )
 }
 
-/* ─── Modern collapse toggle ────────────────────────────────────────────── */
-function CollapseToggle({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
-  return (
-    <motion.button
-      onClick={onToggle}
-      animate={{ x: collapsed ? -6 : 0 }}
-      transition={{ type: 'spring', stiffness: 380, damping: 36, mass: 0.8 }}
-      title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-      className="hidden md:flex flex-shrink-0 self-center z-10 flex-col items-center justify-center gap-[3px] group"
-      style={{ width: 20, height: 40 }}
-    >
-      {/* Track */}
-      <div className="relative w-5 h-10 rounded-full bg-[#EDE4D6] border border-[#D4C4B0] shadow-[0_2px_8px_rgba(124,92,62,0.15)] group-hover:shadow-[0_2px_12px_rgba(124,92,62,0.25)] group-hover:bg-[#E4D5C2] group-hover:border-[#C4A882] transition-all duration-200 flex items-center justify-center overflow-hidden">
-        {/* Animated icon */}
-        <motion.div
-          animate={{ rotate: collapsed ? 0 : 180 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-        >
-          {collapsed
-            ? <PanelLeftOpen  className="w-3 h-3 text-[#7C5C3E]" />
-            : <PanelLeftClose className="w-3 h-3 text-[#9A8474] group-hover:text-[#7C5C3E] transition-colors duration-200" />
-          }
-        </motion.div>
-        {/* Shimmer line */}
-        <div className="absolute inset-x-0 top-1.5 mx-auto w-3 h-px bg-[#C4B4A0]/40 rounded-full" />
-        <div className="absolute inset-x-0 bottom-1.5 mx-auto w-3 h-px bg-[#C4B4A0]/40 rounded-full" />
-      </div>
-    </motion.button>
-  )
-}
-
 /* ─── Sidebar shell ────────────────────────────────────────────────────── */
 export default function Sidebar() {
   const { isSidebarOpen, setSidebarOpen } = useChatStore()
@@ -306,15 +298,12 @@ export default function Sidebar() {
         style={{ minWidth: 0 }}
       >
         <div className="w-[300px] h-full">
-          <SidebarContent />
+          <SidebarContent
+            collapsed={desktopCollapsed}
+            onToggleCollapse={() => setDesktopCollapsed((v) => !v)}
+          />
         </div>
       </motion.aside>
-
-      {/* Modern collapse toggle between panels */}
-      <CollapseToggle
-        collapsed={desktopCollapsed}
-        onToggle={() => setDesktopCollapsed((v) => !v)}
-      />
 
       {/* Mobile drawer */}
       <AnimatePresence>

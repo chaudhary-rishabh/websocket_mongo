@@ -276,18 +276,41 @@ export default function ConversationList({
   onUnhideConv,
   onDeleteHiddenConv,
 }: ConversationListProps) {
-  const { activeConversationId, setActiveConversationId } = useChatStore()
+  const { activeConversationId, setActiveConversationId, realConversations } = useChatStore()
   const router = useRouter()
 
+  // Adapt real API conversations to local Conversation shape
+  const adaptedReal: Conversation[] = realConversations.map((rc) => ({
+    id: rc._id,
+    type: rc.type,
+    name: rc.name ?? rc.participants.map((p) => p.displayName).join(', '),
+    avatar: rc.avatar,
+    initials: (rc.name ?? rc.participants.map((p) => p.displayName).join(', ')).slice(0, 2).toUpperCase(),
+    members: rc.participants.map((p) => p._id),
+    onlineCount: rc.participants.filter((p) => p.isOnline).length,
+    lastMessage: rc.lastMessage?.content ?? '',
+    lastMessageTime: rc.lastMessageTime ?? rc.createdAt,
+    unreadCount: rc.unreadCount ?? 0,
+    isPinned: rc.isPinned ?? false,
+    lastMessageSentByMe: false,
+  }))
+
   const typeFilter = activeTab === 'people' ? 'direct' : 'group'
-  const visible = CONVERSATIONS.filter(
+
+  // Merge: real conversations first, then mock (no duplicates)
+  const allConvs: Conversation[] = [
+    ...adaptedReal,
+    ...CONVERSATIONS.filter((c) => !adaptedReal.some((r) => r.id === c.id)),
+  ]
+
+  const visible = allConvs.filter(
     (c) => !deletedIds.has(c.id) && !hiddenIds.has(c.id) && c.type === typeFilter,
   )
   const pinned = visible.filter((c) => c.isPinned)
   const others = visible.filter((c) => !c.isPinned)
 
   /* Dynamic hidden convs for accordion (all types, all tabs — shown in People tab) */
-  const dynamicHidden = CONVERSATIONS.filter(
+  const dynamicHidden = allConvs.filter(
     (c) => hiddenIds.has(c.id) && !deletedIds.has(c.id),
   )
 
@@ -296,7 +319,7 @@ export default function ConversationList({
     router.push(`/chat/${id}`)
   }
 
-  const renderItem = (conv: (typeof CONVERSATIONS)[0]) => (
+  const renderItem = (conv: Conversation) => (
     <ConversationItem
       key={conv.id}
       conversation={conv}

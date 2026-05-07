@@ -1,26 +1,81 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Trash2, X } from 'lucide-react'
+import { useSession } from 'next-auth/react'
 import { getConversationById, getMessages } from '@/lib/mock-data'
+import { useChatStore } from '@/lib/store'
+import { wsClient } from '@/lib/ws-client'
+import type { ApiConversation, ApiMessage } from '@/lib/chat-types'
 import ChatHeader from './ChatHeader'
 import MessageList from './MessageList'
 import MessageInput from './MessageInput'
+import type { Conversation } from '@/lib/schemas'
+
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
+const REAL_ID = /^[0-9a-f]{24}$/i
 
 interface ChatViewProps {
   conversationId: string
 }
 
 export default function ChatView({ conversationId }: ChatViewProps) {
-  const conversation = getConversationById(conversationId)!
+  const { data: session } = useSession()
+  const isReal = REAL_ID.test(conversationId)
 
+  const {
+    realtimeMessages,
+    appendMessage,
+    prependMessages,
+    typingUsers,
+    realConversations,
+  } = useChatStore()
+
+  const [apiConversation, setApiConversation] = useState<ApiConversation | null>(null)
   const [isSelectMode,  setIsSelectMode]  = useState(false)
   const [selectedIds,   setSelectedIds]   = useState<Set<string>>(new Set())
   const [deletedIds,    setDeletedIds]    = useState<Set<string>>(new Set())
 
-  const messages = getMessages(conversationId).filter((m) => !deletedIds.has(m.id))
+  // ── Load real conversation & messages ──────────────────────────────────
+  useEffect(() => {
+    if (!isReal || !session?.accessToken) return
 
+    // Find from cached list first
+    const cached = realConversations.find((c) => c._id === conversationId)
+    if (cached) setApiConversation(cached)
+
+    // Load messages
+    fetch(`${API}/api/v1/conversations/${conversationId}/messages`, {
+      headers: { Authorization: `Bearer ${session.accessToken}` },
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) {
+          prependMessages(conversationId, json.data as ApiMessage[])
+        }
+      })
+      .catch(() => {/* ignore */})
+
+    // Load conversation details if not cached
+    if (!cached) {
+      fetch(`${API}/api/v1/conversations/${conversationId}`, {
+        headers: { Authorization: `Bearer ${session.accessToken}` },
+      })
+        .then((r) => r.json())
+        .then((json) => { if (json.success) setApiConversation(json.data as ApiConversation) })
+        .catch(() => {/* ignore */})
+    }
+  }, [isReal, conversationId, session?.accessToken, realConversations, prependMessages])
+
+  // ── Join / leave WS room for real conversations ────────────────────────
+  useEffect(() => {
+    if (!isReal) return
+    wsClient.send({ type: 'JOIN_CONVERSATION', conversationId })
+    return () => { wsClient.send({ type: 'LEAVE_CONVERSATION', conversationId }) }
+  }, [isReal, conversationId])
+
+  // ── Message selection ──────────────────────────────────────────────────
   const toggleSelect = (id: string) =>
     setSelectedIds((prev) => {
       const next = new Set(prev)
@@ -39,22 +94,115 @@ export default function ChatView({ conversationId }: ChatViewProps) {
     setIsSelectMode(false)
   }
 
+  // ── Send ──────────────────────────────────────────────────────────────
+  const handleSend = useCallback((content: string) => {
+    if (isReal) {
+      const tempId = crypto.randomUUID()
+      // Optimistic message
+      const optimistic: ApiMessage = {
+        _id: tempId,
+        conversationId,
+        sender: session?.user?.id ?? 'me',
+        type: 'text',
+        content,
+        reactions: [],
+        readBy: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        tempId,
+        isPending: true,
+      }
+      appendMessage(conversationId, optimistic)
+      wsClient.send({ type: 'SEND_MESSAGE', conversationId, tempId, messageType: 'text', content })
+    }
+    // For mock conversations we just display — no real send needed
+  }, [isReal, conversationId, session?.user?.id, appendMessage])
+
+  // ── Typing ────────────────────────────────────────────────────────────
+  const handleTypingStart = useCallback(() => {
+    if (isReal) wsClient.send({ type: 'TYPING_START', conversationId })
+  }, [isReal, conversationId])
+
+  const handleTypingStop = useCallback(() => {
+    if (isReal) wsClient.send({ type: 'TYPING_STOP', conversationId })
+  }, [isReal, conversationId])
+
+  // ── Compute data to render ─────────────────────────────────────────────
+  // Mock conversation path
+  const mockConversation = !isReal ? getConversationById(conversationId) : null
+  const conversation: Conversation | null = isReal
+    ? (apiConversation
+        ? {
+            id: apiConversation._id,
+            type: apiConversation.type,
+            name: apiConversation.name ?? apiConversation.participants.map((p) => p.displayName).join(', '),
+            avatar: apiConversation.avatar,
+            initials: (apiConversation.name ?? 'CH').slice(0, 2).toUpperCase(),
+            lastMessage: apiConversation.lastMessage?.content ?? '',
+            lastMessageTime: apiConversation.lastMessageTime ?? apiConversation.createdAt,
+            members: apiConversation.participants.map((p) => p._id),
+            onlineCount: apiConversation.participants.filter((p) => p.isOnline).length,
+            isPinned: apiConversation.isPinned ?? false,
+            unreadCount: apiConversation.unreadCount ?? 0,
+            lastMessageSentByMe: false,
+          } satisfies Conversation
+        : null)
+    : (mockConversation ?? null)
+
+  // Build senderMap for real messages
+  const senderMap: Record<string, { id: string; name: string; avatar?: string; initials: string }> = {}
+  if (isReal && apiConversation) {
+    for (const p of apiConversation.participants) {
+      senderMap[p._id] = {
+        id: p._id,
+        name: p.displayName,
+        avatar: p.avatar,
+        initials: p.displayName.slice(0, 2).toUpperCase(),
+      }
+    }
+  }
+
+  // Real messages from store; mock messages from mock-data
+  const realtimeMsgs = realtimeMessages[conversationId] ?? []
+  const mockMessages = !isReal ? getMessages(conversationId).filter((m) => !deletedIds.has(m.id)) : []
+
+  // Typing usernames in this conversation
+  const typingSet = typingUsers[conversationId] ?? new Set<string>()
+  const typingUsernames = [...typingSet]
+    .filter((uid) => uid !== session?.user?.id)
+    .map((uid) => senderMap[uid]?.name ?? 'Someone')
+
+  if (!conversation && !isReal) {
+    return (
+      <div className="flex items-center justify-center h-full text-[#9A8474] text-sm">
+        Conversation not found
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <ChatHeader
-        conversation={conversation}
-        isSelectMode={isSelectMode}
-        selectedCount={selectedIds.size}
-        onEnterSelectMode={() => setIsSelectMode(true)}
-        onExitSelectMode={cancelSelect}
-        onDeleteSelected={handleDelete}
-      />
+      {conversation && (
+        <ChatHeader
+          conversation={conversation}
+          isSelectMode={isSelectMode}
+          selectedCount={selectedIds.size}
+          onEnterSelectMode={() => setIsSelectMode(true)}
+          onExitSelectMode={cancelSelect}
+          onDeleteSelected={handleDelete}
+        />
+      )}
 
       <MessageList
-        messages={messages}
+        mockMessages={mockMessages}
+        realtimeMessages={realtimeMsgs}
+        senderMap={senderMap}
         isSelectMode={isSelectMode}
         selectedIds={selectedIds}
         onToggleSelect={toggleSelect}
+        deletedIds={deletedIds}
+        typingUsernames={typingUsernames}
+        myUserId={session?.user?.id}
       />
 
       {/* Footer: delete bar or input */}
@@ -96,7 +244,11 @@ export default function ChatView({ conversationId }: ChatViewProps) {
             exit={{    y: 60, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 420, damping: 38 }}
           >
-            <MessageInput />
+            <MessageInput
+              onSend={handleSend}
+              onTypingStart={handleTypingStart}
+              onTypingStop={handleTypingStop}
+            />
           </motion.div>
         )}
       </AnimatePresence>

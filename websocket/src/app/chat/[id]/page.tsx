@@ -1,5 +1,3 @@
-import { notFound } from 'next/navigation'
-import { getConversationById } from '@/lib/mock-data'
 import ChatView from '@/components/chat/ChatView'
 
 interface PageProps {
@@ -8,10 +6,6 @@ interface PageProps {
 
 export default async function ChatPage({ params }: PageProps) {
   const { id } = await params
-  const conversation = getConversationById(id)
-
-  if (!conversation) notFound()
-
   return <ChatView conversationId={id} />
 }
 

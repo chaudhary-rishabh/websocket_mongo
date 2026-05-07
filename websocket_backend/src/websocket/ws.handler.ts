@@ -9,6 +9,7 @@ import {
 } from './ws.rooms.js'
 import { sendMessage, addReaction, markRead } from '../modules/messages/message.service.js'
 import { setOnlineStatus } from '../modules/users/user.service.js'
+import { listConversations } from '../modules/conversations/conversation.service.js'
 import { logger } from '../shared/utils/logger.js'
 
 function send(socket: AuthenticatedSocket, event: ServerEvent): void {
@@ -108,14 +109,37 @@ export async function handleMessage(socket: AuthenticatedSocket, raw: string): P
 export async function handleConnect(socket: AuthenticatedSocket): Promise<void> {
   await setOnlineStatus(socket.userId, true)
   send(socket, { type: 'CONNECTED', userId: socket.userId })
-  // Broadcast online presence — other users tracking this user will receive it
-  // (in a real app: only broadcast to users sharing a conversation)
+
+  // Auto-join all conversation rooms the user belongs to and broadcast presence
+  try {
+    const conversations = await listConversations(socket.userId)
+    for (const conv of conversations) {
+      const convId = conv._id?.toString()
+      if (!convId) continue
+      joinRoom(convId, socket)
+      broadcastToRoom(convId, {
+        type: 'USER_ONLINE',
+        userId: socket.userId,
+      }, socket)
+    }
+  } catch (err) {
+    logger.error({ err, userId: socket.userId }, 'Failed to auto-join rooms on connect')
+  }
+
   logger.info({ userId: socket.userId }, 'WS client connected')
 }
 
-export async function handleDisconnect(socket: AuthenticatedSocket): Promise<void> {
+export async function handleDisconnect(socket: AuthenticatedSocket, roomIds: string[]): Promise<void> {
   if (!isUserOnline(socket.userId)) {
     await setOnlineStatus(socket.userId, false)
+  }
+  const lastSeen = new Date().toISOString()
+  for (const convId of roomIds) {
+    broadcastToRoom(convId, {
+      type: 'USER_OFFLINE',
+      userId: socket.userId,
+      lastSeen,
+    }, socket)
   }
   logger.info({ userId: socket.userId }, 'WS client disconnected')
 }

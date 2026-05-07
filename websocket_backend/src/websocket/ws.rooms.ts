@@ -69,3 +69,11 @@ export function isUserOnline(userId: string): boolean {
 export function getRoomSize(conversationId: string): number {
   return rooms.get(conversationId)?.size ?? 0
 }
+
+export function getSocketRooms(socket: AuthenticatedSocket): string[] {
+  const result: string[] = []
+  for (const [id, sockets] of rooms) {
+    if (sockets.has(socket)) result.push(id)
+  }
+  return result
+}

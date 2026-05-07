@@ -1,15 +1,49 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { Paperclip, Mic, SendHorizonal, Smile } from 'lucide-react'
 import { MessageInputSchema } from '@/lib/schemas'
 import { cn } from '@/lib/utils'
 
-export default function MessageInput() {
+interface MessageInputProps {
+  onSend?: (content: string) => void
+  onTypingStart?: () => void
+  onTypingStop?: () => void
+}
+
+const TYPING_STOP_DELAY = 1500
+
+export default function MessageInput({ onSend, onTypingStart, onTypingStop }: MessageInputProps) {
   const [value, setValue] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const typingRef = useRef(false)
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const isValid = MessageInputSchema.safeParse({ content: value }).success
+  const triggerTypingStop = useCallback(() => {
+    if (typingRef.current) {
+      typingRef.current = false
+      onTypingStop?.()
+    }
+  }, [onTypingStop])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setValue(e.target.value)
+    if (error) setError(null)
+
+    if (e.target.value.length > 0) {
+      if (!typingRef.current) {
+        typingRef.current = true
+        onTypingStart?.()
+      }
+      // Reset debounce timer
+      if (typingTimer.current) clearTimeout(typingTimer.current)
+      typingTimer.current = setTimeout(triggerTypingStop, TYPING_STOP_DELAY)
+    } else {
+      // Empty input — stop typing immediately
+      if (typingTimer.current) clearTimeout(typingTimer.current)
+      triggerTypingStop()
+    }
+  }
 
   const handleSend = () => {
     const result = MessageInputSchema.safeParse({ content: value })
@@ -17,8 +51,13 @@ export default function MessageInput() {
       setError('Message cannot be empty.')
       return
     }
+    const content = value.trim()
     setValue('')
     setError(null)
+    // Stop typing on send
+    if (typingTimer.current) clearTimeout(typingTimer.current)
+    triggerTypingStop()
+    onSend?.(content)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -27,6 +66,8 @@ export default function MessageInput() {
       handleSend()
     }
   }
+
+  const isValid = value.trim().length > 0
 
   return (
     <div className="px-4 py-3 border-t border-[#E0D5C5] flex-shrink-0">
@@ -50,10 +91,7 @@ export default function MessageInput() {
         <input
           type="text"
           value={value}
-          onChange={(e) => {
-            setValue(e.target.value)
-            if (error) setError(null)
-          }}
+          onChange={handleChange}
           onKeyDown={handleKeyDown}
           placeholder="Type a message…"
           className="flex-1 bg-transparent text-sm text-[#2A1F14] placeholder-[#B0A090] outline-none"

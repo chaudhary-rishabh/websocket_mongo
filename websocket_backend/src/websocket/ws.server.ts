@@ -9,6 +9,7 @@ import {
   registerUserSocket,
   unregisterUserSocket,
   leaveAllRooms,
+  getSocketRooms,
 } from './ws.rooms.js'
 import { handleMessage, handleConnect, handleDisconnect } from './ws.handler.js'
 import { logger } from '../shared/utils/logger.js'
@@ -69,9 +70,10 @@ export function createWebSocketServer(httpServer: Server): WebSocketServer {
     })
 
     socket.on('close', () => {
+      const roomIds = getSocketRooms(socket)
       unregisterUserSocket(socket.userId, socket)
       leaveAllRooms(socket)
-      handleDisconnect(socket).catch((err: unknown) => {
+      handleDisconnect(socket, roomIds).catch((err: unknown) => {
         logger.error({ err }, 'WS disconnect error')
       })
     })

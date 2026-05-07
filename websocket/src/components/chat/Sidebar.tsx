@@ -4,10 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Search, MessageSquare, X, Trash2, SquarePen, Settings, LogOut, PanelLeftClose, PanelLeftOpen, Eye } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useSession } from 'next-auth/react'
 import { useChatStore } from '@/lib/store'
-import { CURRENT_USER } from '@/lib/mock-data'
-import Avatar from '@/components/ui/Avatar'
 import ConversationList from './ConversationList'
 import SearchModal from './SearchModal'
 import { logoutAction } from '@/app/actions/auth'
@@ -36,7 +33,6 @@ function SidebarContent({
   onToggleCollapse?: () => void
 }) {
   const { setSearchOpen } = useChatStore()
-  const { data: session } = useSession()
 
   const [activeTab,    setActiveTab]    = useState<Tab>('people')
   const [isSelectMode, setIsSelectMode] = useState(false)
@@ -112,27 +108,6 @@ function SidebarContent({
                 <SquarePen className="w-4 h-4" />
               </button>
 
-              {/* Desktop collapse button — in header, correct icon per state */}
-              {onToggleCollapse && (
-                <button
-                  onClick={onToggleCollapse}
-                  title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                  className="hidden md:flex p-2 rounded-full hover:bg-[#EDE4D6] transition-colors text-[#9A8474] hover:text-[#7C5C3E]"
-                >
-                  <motion.div
-                    key={collapsed ? 'open' : 'close'}
-                    initial={{ opacity: 0, scale: 0.7 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.15 }}
-                  >
-                    {collapsed
-                      ? <PanelLeftOpen  className="w-4 h-4" />
-                      : <PanelLeftClose className="w-4 h-4" />
-                    }
-                  </motion.div>
-                </button>
-              )}
-
               {/* Mobile close drawer button */}
               {showClose && (
                 <button
@@ -143,17 +118,23 @@ function SidebarContent({
                 </button>
               )}
 
-              <Link href="/profile" className="rounded-full">
-                <Avatar
-                  src={session?.user?.avatar ?? session?.user?.image ?? CURRENT_USER.avatar}
-                  initials={(session?.user?.displayName ?? session?.user?.name ?? CURRENT_USER.name)
-                    .split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
-                  name={session?.user?.displayName ?? session?.user?.name ?? CURRENT_USER.name}
-                  id={session?.user?.id ?? CURRENT_USER.id}
-                  size="sm"
-                  isOnline
-                />
-              </Link>
+              {/* Desktop collapse button — rightmost, desktop only */}
+              {onToggleCollapse && (
+                <button
+                  onClick={onToggleCollapse}
+                  title="Collapse sidebar"
+                  className="hidden md:flex p-2 rounded-full hover:bg-[#EDE4D6] transition-colors text-[#9A8474] hover:text-[#7C5C3E]"
+                >
+                  <motion.div
+                    key="close"
+                    initial={{ opacity: 0, scale: 0.7 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <PanelLeftClose className="w-4 h-4" />
+                  </motion.div>
+                </button>
+              )}
             </>
           )}
         </div>
@@ -304,6 +285,24 @@ export default function Sidebar() {
           />
         </div>
       </motion.aside>
+
+      {/* Desktop re-open button — only visible when sidebar is collapsed */}
+      <AnimatePresence>
+        {desktopCollapsed && (
+          <motion.button
+            key="reopen"
+            initial={{ opacity: 0, x: -12, scale: 0.85 }}
+            animate={{ opacity: 1, x: 0,   scale: 1 }}
+            exit={{    opacity: 0, x: -12, scale: 0.85 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+            onClick={() => setDesktopCollapsed(false)}
+            title="Open sidebar"
+            className="hidden md:flex flex-shrink-0 self-start mt-4 p-2.5 rounded-2xl bg-[#F6EEE3] hover:bg-[#EDE4D6] transition-colors text-[#7C5C3E] shadow-sm border border-[#E0D5C5]"
+          >
+            <PanelLeftOpen className="w-4 h-4" />
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* Mobile drawer */}
       <AnimatePresence>

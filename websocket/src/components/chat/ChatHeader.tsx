@@ -43,7 +43,7 @@ export default function ChatHeader({
 
   return (
     <>
-      <header className="flex items-center gap-3 px-5 py-3.5 bg-transparent border-b border-[#E0D5C5] flex-shrink-0">
+      <header className="flex items-center gap-3 px-5 py-3.5 header-glass flex-shrink-0">
         {/* Mobile hamburger */}
         {!isSelectMode && (
           <button

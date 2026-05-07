@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Search, MessageSquare, X, ChevronLeft, ChevronRight, Trash2, SquarePen } from 'lucide-react'
+import { Search, MessageSquare, X, Trash2, SquarePen, Settings, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useChatStore } from '@/lib/store'
 import { CURRENT_USER } from '@/lib/mock-data'
@@ -154,7 +154,7 @@ function SidebarContent({
       )}
 
       {/* ── Conversation list ── */}
-      <div className="flex-1 overflow-y-auto chat-scrollbar pb-4">
+      <div className="flex-1 overflow-y-auto chat-scrollbar">
         <ConversationList
           activeTab={activeTab}
           isSelectMode={isSelectMode}
@@ -164,13 +164,14 @@ function SidebarContent({
         />
       </div>
 
-      {/* ── Select mode action bar ── */}
-      <AnimatePresence>
-        {isSelectMode && (
+      {/* ── Select mode action bar OR bottom nav ── */}
+      <AnimatePresence mode="wait">
+        {isSelectMode ? (
           <motion.div
-            initial={{ y: 80, opacity: 0 }}
+            key="select-bar"
+            initial={{ y: 60, opacity: 0 }}
             animate={{ y: 0,  opacity: 1 }}
-            exit={{    y: 80, opacity: 0 }}
+            exit={{    y: 60, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 36 }}
             className="flex-shrink-0 border-t border-[#E0D5C5] px-4 py-3 bg-[#F6EEE3] rounded-b-[25px] flex items-center gap-3"
           >
@@ -186,9 +187,76 @@ function SidebarContent({
               Delete
             </button>
           </motion.div>
+        ) : (
+          <motion.div
+            key="bottom-nav"
+            initial={{ y: 30, opacity: 0 }}
+            animate={{ y: 0,  opacity: 1 }}
+            exit={{    y: 30, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 36 }}
+            className="flex-shrink-0 border-t border-[#E0D5C5] px-4 py-3 flex items-center justify-between rounded-b-[25px]"
+          >
+            {/* Left: Settings */}
+            <Link
+              href="/profile"
+              className="group flex items-center gap-2 p-2 rounded-2xl hover:bg-[#EDE4D6] transition-all duration-200"
+              title="Settings"
+            >
+              <div className="w-8 h-8 rounded-xl bg-[#EDE4D6] group-hover:bg-[#E4D5C2] flex items-center justify-center transition-colors duration-200">
+                <Settings className="w-4 h-4 text-[#7C5C3E]" />
+              </div>
+              <span className="text-xs font-medium text-[#9A8474] group-hover:text-[#7C5C3E] transition-colors duration-200">
+                Settings
+              </span>
+            </Link>
+
+            {/* Right: Logout */}
+            <button
+              className="group flex items-center gap-2 p-2 rounded-2xl hover:bg-red-50 transition-all duration-200"
+              title="Log out"
+            >
+              <div className="w-8 h-8 rounded-xl bg-[#EDE4D6] group-hover:bg-red-100 flex items-center justify-center transition-colors duration-200">
+                <LogOut className="w-4 h-4 text-[#9A8474] group-hover:text-red-500 transition-colors duration-200" />
+              </div>
+              <span className="text-xs font-medium text-[#9A8474] group-hover:text-red-500 transition-colors duration-200">
+                Log out
+              </span>
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
+  )
+}
+
+/* ─── Modern collapse toggle ────────────────────────────────────────────── */
+function CollapseToggle({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+  return (
+    <motion.button
+      onClick={onToggle}
+      animate={{ x: collapsed ? -6 : 0 }}
+      transition={{ type: 'spring', stiffness: 380, damping: 36, mass: 0.8 }}
+      title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      className="hidden md:flex flex-shrink-0 self-center z-10 flex-col items-center justify-center gap-[3px] group"
+      style={{ width: 20, height: 40 }}
+    >
+      {/* Track */}
+      <div className="relative w-5 h-10 rounded-full bg-[#EDE4D6] border border-[#D4C4B0] shadow-[0_2px_8px_rgba(124,92,62,0.15)] group-hover:shadow-[0_2px_12px_rgba(124,92,62,0.25)] group-hover:bg-[#E4D5C2] group-hover:border-[#C4A882] transition-all duration-200 flex items-center justify-center overflow-hidden">
+        {/* Animated icon */}
+        <motion.div
+          animate={{ rotate: collapsed ? 0 : 180 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+        >
+          {collapsed
+            ? <PanelLeftOpen  className="w-3 h-3 text-[#7C5C3E]" />
+            : <PanelLeftClose className="w-3 h-3 text-[#9A8474] group-hover:text-[#7C5C3E] transition-colors duration-200" />
+          }
+        </motion.div>
+        {/* Shimmer line */}
+        <div className="absolute inset-x-0 top-1.5 mx-auto w-3 h-px bg-[#C4B4A0]/40 rounded-full" />
+        <div className="absolute inset-x-0 bottom-1.5 mx-auto w-3 h-px bg-[#C4B4A0]/40 rounded-full" />
+      </div>
+    </motion.button>
   )
 }
 
@@ -211,19 +279,11 @@ export default function Sidebar() {
         </div>
       </motion.aside>
 
-      {/* Desktop collapse toggle — sits between panels */}
-      <motion.button
-        animate={{ x: desktopCollapsed ? -8 : 0 }}
-        transition={{ type: 'spring', stiffness: 380, damping: 36, mass: 0.8 }}
-        onClick={() => setDesktopCollapsed((v) => !v)}
-        className="hidden md:flex flex-shrink-0 self-center w-6 h-12 items-center justify-center rounded-full bg-[#EDE4D6] hover:bg-[#E4D5C2] border border-[#D4C4B0] shadow-sm transition-colors duration-200 z-10"
-        title={desktopCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-      >
-        {desktopCollapsed
-          ? <ChevronRight className="w-3.5 h-3.5 text-[#7C5C3E]" />
-          : <ChevronLeft  className="w-3.5 h-3.5 text-[#9A8474]" />
-        }
-      </motion.button>
+      {/* Modern collapse toggle between panels */}
+      <CollapseToggle
+        collapsed={desktopCollapsed}
+        onToggle={() => setDesktopCollapsed((v) => !v)}
+      />
 
       {/* Mobile drawer */}
       <AnimatePresence>

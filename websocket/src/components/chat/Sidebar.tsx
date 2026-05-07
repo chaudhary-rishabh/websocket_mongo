@@ -4,11 +4,13 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Search, MessageSquare, X, Trash2, SquarePen, Settings, LogOut, PanelLeftClose, PanelLeftOpen, Eye } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useSession } from 'next-auth/react'
 import { useChatStore } from '@/lib/store'
 import { CURRENT_USER } from '@/lib/mock-data'
 import Avatar from '@/components/ui/Avatar'
 import ConversationList from './ConversationList'
 import SearchModal from './SearchModal'
+import { logoutAction } from '@/app/actions/auth'
 
 const drawerVariants = {
   hidden:  { x: '-100%', transition: { type: 'tween', ease: [0.4, 0, 1, 1], duration: 0.22 } },
@@ -30,6 +32,7 @@ function SidebarContent({
   showClose?: boolean
 }) {
   const { setSearchOpen } = useChatStore()
+  const { data: session } = useSession()
 
   const [activeTab,    setActiveTab]    = useState<Tab>('people')
   const [isSelectMode, setIsSelectMode] = useState(false)
@@ -114,10 +117,11 @@ function SidebarContent({
               )}
               <Link href="/profile" className="rounded-full">
                 <Avatar
-                  src={CURRENT_USER.avatar}
-                  initials={CURRENT_USER.initials}
-                  name={CURRENT_USER.name}
-                  id={CURRENT_USER.id}
+                  src={session?.user?.avatar ?? session?.user?.image ?? CURRENT_USER.avatar}
+                  initials={(session?.user?.displayName ?? session?.user?.name ?? CURRENT_USER.name)
+                    .split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
+                  name={session?.user?.displayName ?? session?.user?.name ?? CURRENT_USER.name}
+                  id={session?.user?.id ?? CURRENT_USER.id}
                   size="sm"
                   isOnline
                 />
@@ -238,6 +242,7 @@ function SidebarContent({
 
             {/* Right: Logout */}
             <button
+              onClick={() => logoutAction()}
               className="group flex items-center gap-2 p-2 rounded-2xl hover:bg-red-50 transition-all duration-200"
               title="Log out"
             >

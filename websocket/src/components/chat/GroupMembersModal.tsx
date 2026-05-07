@@ -26,7 +26,7 @@ export default function GroupMembersModal({ conversation, onClose }: GroupMember
       return a.name.localeCompare(b.name)
     })
 
-  const onlineCount = members.filter((m) => m.isOnline).length
+  const onlineCount    = members.filter((m) =>  m.isOnline).length
   const onlineMembers  = members.filter((m) =>  m.isOnline)
   const offlineMembers = members.filter((m) => !m.isOnline)
 
@@ -40,7 +40,7 @@ export default function GroupMembersModal({ conversation, onClose }: GroupMember
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18 }}
-          className="fixed inset-0 z-50 bg-black/40"
+          className="fixed inset-0 z-50 bg-black/30"
           onClick={onClose}
         />
 
@@ -54,53 +54,52 @@ export default function GroupMembersModal({ conversation, onClose }: GroupMember
           className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
         >
           <div
-            className="pointer-events-auto bg-white w-full max-w-sm flex flex-col shadow-2xl overflow-hidden"
+            className="pointer-events-auto bg-[#F6EEE3] w-full max-w-sm flex flex-col shadow-2xl overflow-hidden border border-[#E0D5C5]"
             style={{ borderRadius: 25, maxHeight: '80vh' }}
           >
             {/* ── Header ── */}
             <div className="flex items-center justify-between px-5 pt-5 pb-4 flex-shrink-0">
               <div>
-                <h2 className="text-base font-bold text-[#1A1A2E]">{conversation.name}</h2>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <h2 className="text-base font-bold text-[#2A1F14]">{conversation.name}</h2>
+                <p className="text-xs text-[#9A8474] mt-0.5">
                   {members.length} members · {onlineCount} online
                 </p>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                className="p-2 rounded-full hover:bg-[#EDE4D6] transition-colors text-[#9A8474]"
               >
-                <X className="w-4 h-4 text-gray-500" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* ── Action buttons ── */}
             <div className="flex gap-2 px-5 pb-4 flex-shrink-0">
-              <button className="flex-1 flex items-center justify-center gap-2 bg-[#6C63FF] hover:bg-indigo-600 text-white text-xs font-semibold py-2.5 rounded-xl transition-colors duration-200">
+              <button className="flex-1 flex items-center justify-center gap-2 bg-[#7C5C3E] hover:bg-[#9B7653] text-white text-xs font-semibold py-2.5 rounded-xl transition-colors duration-200">
                 <UserPlus className="w-3.5 h-3.5" />
                 Add Member
               </button>
-              <button className="flex-1 flex items-center justify-center gap-2 border border-red-200 hover:bg-red-50 text-red-500 text-xs font-semibold py-2.5 rounded-xl transition-colors duration-200">
+              <button className="flex-1 flex items-center justify-center gap-2 border border-red-300/60 hover:bg-red-50 text-red-500 text-xs font-semibold py-2.5 rounded-xl transition-colors duration-200">
                 <LogOut className="w-3.5 h-3.5" />
                 Leave Group
               </button>
             </div>
 
-            <div className="h-px bg-gray-100 mx-5 flex-shrink-0" />
+            <div className="h-px bg-[#E0D5C5] mx-5 flex-shrink-0" />
 
             {/* ── Members list ── */}
             <div className="overflow-y-auto chat-scrollbar flex-1 py-3">
               {onlineMembers.length > 0 && (
                 <>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 px-5 pb-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9A8474] px-5 pb-2">
                     Online — {onlineMembers.length}
                   </p>
                   {onlineMembers.map((m) => <MemberRow key={m.id} member={m} />)}
                 </>
               )}
-
               {offlineMembers.length > 0 && (
                 <>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 px-5 pt-3 pb-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9A8474] px-5 pt-3 pb-2">
                     Offline — {offlineMembers.length}
                   </p>
                   {offlineMembers.map((m) => <MemberRow key={m.id} member={m} />)}
@@ -116,38 +115,28 @@ export default function GroupMembersModal({ conversation, onClose }: GroupMember
 
 function MemberRow({ member }: { member: Member }) {
   return (
-    <div className="flex items-center gap-3 px-5 py-2.5 hover:bg-gray-50 transition-colors">
-      {/* Avatar + online dot */}
+    <div className="flex items-center gap-3 px-5 py-2.5 hover:bg-[#EDE4D6] transition-colors">
       <div className="relative flex-shrink-0">
-        <Avatar
-          src={member.avatar}
-          initials={member.initials}
-          name={member.name}
-          id={member.id}
-          size="md"
-        />
-        <span
-          className={cn(
-            'absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white',
-            member.isOnline ? 'bg-[#22C55E]' : 'bg-gray-300',
-          )}
-        />
+        <Avatar src={member.avatar} initials={member.initials} name={member.name} id={member.id} size="md" />
+        <span className={cn(
+          'absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#F6EEE3]',
+          member.isOnline ? 'bg-[#22C55E]' : 'bg-[#C4B4A0]',
+        )} />
       </div>
 
-      {/* Name + status */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className={cn('text-sm font-medium truncate', member.id === 'me' ? 'text-[#6C63FF]' : 'text-[#1A1A2E]')}>
+          <p className={cn('text-sm font-medium truncate', member.id === 'me' ? 'text-[#7C5C3E]' : 'text-[#2A1F14]')}>
             {member.id === 'me' ? `${member.name} (You)` : member.name}
           </p>
           {member.role === 'admin' && (
-            <Crown className="w-3 h-3 text-amber-400 flex-shrink-0" fill="currentColor" />
+            <Crown className="w-3 h-3 text-amber-500 flex-shrink-0" fill="currentColor" />
           )}
         </div>
         <p className="text-xs mt-0.5">
           {member.isOnline
-            ? <span className="text-emerald-500 font-medium">Online</span>
-            : <span className="text-gray-400">Offline</span>
+            ? <span className="text-emerald-600 font-medium">Online</span>
+            : <span className="text-[#B0A090]">Offline</span>
           }
         </p>
       </div>

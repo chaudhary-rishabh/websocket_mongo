@@ -11,7 +11,7 @@ export default function Badge({ count, className }: BadgeProps) {
     <span
       className={cn(
         'inline-flex items-center justify-center min-w-[18px] h-[18px] px-1',
-        'rounded-full bg-[#FF4D4F] text-white text-[10px] font-bold leading-none',
+        'rounded-full bg-[#C0582A] text-white text-[10px] font-bold leading-none',
         className,
       )}
     >

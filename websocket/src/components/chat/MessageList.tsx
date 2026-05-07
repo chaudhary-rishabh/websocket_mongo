@@ -22,7 +22,7 @@ export default function MessageList({ messages, isSelectMode, selectedIds, onTog
   }, [messages])
 
   return (
-    <div className="flex-1 overflow-y-auto chat-scrollbar px-4 py-4 flex flex-col gap-4 bg-[#F0F2FF]">
+    <div className="flex-1 overflow-y-auto chat-scrollbar px-4 py-4 flex flex-col gap-4">
       {messages.map((message, index) => {
         const isMe = message.senderId === CURRENT_USER.id
         const sender = isMe ? CURRENT_USER : getUserById(message.senderId)
@@ -39,7 +39,7 @@ export default function MessageList({ messages, isSelectMode, selectedIds, onTog
               'flex rounded-2xl transition-colors duration-150',
               isMe ? 'justify-end' : 'justify-start',
               isSelectMode && 'cursor-pointer px-2 py-1',
-              isSelectMode && isSelected && 'bg-indigo-100/70',
+              isSelectMode && isSelected && 'bg-[#E4D5C2]/60',
             )}
           >
             <MessageBubble

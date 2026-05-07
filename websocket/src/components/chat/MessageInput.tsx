@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Paperclip, Mic, SendHorizonal } from 'lucide-react'
+import { Paperclip, Mic, SendHorizonal, Smile } from 'lucide-react'
 import { MessageInputSchema } from '@/lib/schemas'
 import { cn } from '@/lib/utils'
 
@@ -17,7 +17,6 @@ export default function MessageInput() {
       setError('Message cannot be empty.')
       return
     }
-    // UI only: clear input
     setValue('')
     setError(null)
   }
@@ -30,16 +29,21 @@ export default function MessageInput() {
   }
 
   return (
-    <div className="px-4 py-3 bg-white border-t border-gray-100 flex-shrink-0">
+    <div className="px-4 py-3 border-t border-[#E0D5C5] flex-shrink-0">
       <div
         className={cn(
-          'flex items-center gap-2 bg-gray-50 border rounded-2xl px-3 py-2 transition-all duration-200',
-          error ? 'border-red-300' : 'border-gray-200 focus-within:border-[#6C63FF]',
+          'flex items-center gap-2 bg-white/70 border rounded-2xl px-3 py-2.5 transition-all duration-200',
+          error ? 'border-red-300' : 'border-[#E0D5C5] focus-within:border-[#9B7653] focus-within:bg-white/90',
         )}
       >
+        {/* Emoji */}
+        <button className="p-1.5 rounded-full hover:bg-[#EDE4D6] transition-colors flex-shrink-0">
+          <Smile className="w-4 h-4 text-[#9A8474]" />
+        </button>
+
         {/* Attach */}
-        <button className="p-1.5 rounded-full hover:bg-gray-200 transition-colors flex-shrink-0">
-          <Paperclip className="w-4 h-4 text-gray-400" />
+        <button className="p-1.5 rounded-full hover:bg-[#EDE4D6] transition-colors flex-shrink-0">
+          <Paperclip className="w-4 h-4 text-[#9A8474]" />
         </button>
 
         {/* Input */}
@@ -51,13 +55,13 @@ export default function MessageInput() {
             if (error) setError(null)
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Your message…"
-          className="flex-1 bg-transparent text-sm text-[#1A1A2E] placeholder-gray-400 outline-none"
+          placeholder="Type a message…"
+          className="flex-1 bg-transparent text-sm text-[#2A1F14] placeholder-[#B0A090] outline-none"
         />
 
         {/* Mic */}
-        <button className="p-1.5 rounded-full hover:bg-gray-200 transition-colors flex-shrink-0">
-          <Mic className="w-4 h-4 text-gray-400" />
+        <button className="p-1.5 rounded-full hover:bg-[#EDE4D6] transition-colors flex-shrink-0">
+          <Mic className="w-4 h-4 text-[#9A8474]" />
         </button>
 
         {/* Send */}
@@ -65,10 +69,10 @@ export default function MessageInput() {
           onClick={handleSend}
           disabled={!isValid}
           className={cn(
-            'p-1.5 rounded-full transition-all duration-200 flex-shrink-0',
+            'p-2 rounded-full transition-all duration-200 flex-shrink-0',
             isValid
-              ? 'bg-[#6C63FF] hover:bg-indigo-600 text-white'
-              : 'bg-gray-200 text-gray-400 cursor-not-allowed',
+              ? 'bg-[#7C5C3E] hover:bg-[#9B7653] text-white shadow-sm'
+              : 'bg-[#E4D5C2] text-[#B0A090] cursor-not-allowed',
           )}
         >
           <SendHorizonal className="w-4 h-4" />

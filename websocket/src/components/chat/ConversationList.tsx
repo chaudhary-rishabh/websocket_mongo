@@ -6,6 +6,7 @@ import ConversationItem from './ConversationItem'
 import { useRouter } from 'next/navigation'
 
 interface ConversationListProps {
+  activeTab: 'people' | 'groups'
   isSelectMode: boolean
   selectedIds: Set<string>
   deletedIds: Set<string>
@@ -13,6 +14,7 @@ interface ConversationListProps {
 }
 
 export default function ConversationList({
+  activeTab,
   isSelectMode,
   selectedIds,
   deletedIds,
@@ -21,7 +23,10 @@ export default function ConversationList({
   const { activeConversationId, setActiveConversationId } = useChatStore()
   const router = useRouter()
 
-  const visible = CONVERSATIONS.filter((c) => !deletedIds.has(c.id))
+  const typeFilter = activeTab === 'people' ? 'direct' : 'group'
+  const visible = CONVERSATIONS.filter(
+    (c) => !deletedIds.has(c.id) && c.type === typeFilter,
+  )
   const pinned = visible.filter((c) => c.isPinned)
   const others = visible.filter((c) => !c.isPinned)
 
@@ -43,26 +48,28 @@ export default function ConversationList({
   )
 
   return (
-    <div className="flex flex-col gap-1 px-2">
+    <div className="flex flex-col gap-0.5 px-2">
       {pinned.length > 0 && (
         <>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 px-2 pt-2 pb-1">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9A8474] px-3 pt-2 pb-1">
             Pinned
           </p>
           {pinned.map(renderItem)}
-          <div className="h-px bg-gray-100 mx-2 my-1" />
+          <div className="h-px bg-[#E0D5C5] mx-3 my-1" />
         </>
       )}
       {others.length > 0 && (
         <>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 px-2 pb-1">
-            All Chats
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9A8474] px-3 pb-1">
+            {activeTab === 'people' ? 'Direct Messages' : 'Groups'}
           </p>
           {others.map(renderItem)}
         </>
       )}
       {visible.length === 0 && (
-        <p className="text-center text-sm text-gray-400 py-8">No conversations</p>
+        <p className="text-center text-sm text-[#B0A090] py-10">
+          {activeTab === 'people' ? 'No direct messages' : 'No groups yet'}
+        </p>
       )}
     </div>
   )

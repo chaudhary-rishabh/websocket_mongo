@@ -175,15 +175,15 @@
 }
 
 
-/* Frosted backdrop for chat header */
+/* Frosted backdrop for chat header — messages blur behind as you scroll */
 .header-glass {
   background: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.60) 0%,
-    rgba(255, 255, 255, 0.28) 100%
+    rgba(246, 238, 227, 0.82) 0%,
+    rgba(246, 238, 227, 0.60) 100%
   );
-  backdrop-filter: blur(16px) saturate(1.4);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.55);
-  box-shadow: 0 1px 0 rgba(200, 170, 130, 0.15);
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  border-bottom: 1px solid rgba(224, 213, 197, 0.70);
+  box-shadow: 0 2px 12px rgba(124, 92, 62, 0.08);
 }

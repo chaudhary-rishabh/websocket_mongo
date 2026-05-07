@@ -192,29 +192,35 @@ export default function ChatView({ conversationId }: ChatViewProps) {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="relative flex flex-col h-full overflow-hidden">
+      {/* Header floats above the message list so backdrop-blur shows blurred messages */}
       {conversation && (
-        <ChatHeader
-          conversation={conversation}
-          isSelectMode={isSelectMode}
-          selectedCount={selectedIds.size}
-          onEnterSelectMode={() => setIsSelectMode(true)}
-          onExitSelectMode={cancelSelect}
-          onDeleteSelected={handleDelete}
-        />
+        <div className="absolute inset-x-0 top-0 z-10 rounded-t-[25px] overflow-hidden">
+          <ChatHeader
+            conversation={conversation}
+            isSelectMode={isSelectMode}
+            selectedCount={selectedIds.size}
+            onEnterSelectMode={() => setIsSelectMode(true)}
+            onExitSelectMode={cancelSelect}
+            onDeleteSelected={handleDelete}
+          />
+        </div>
       )}
 
-      <MessageList
-        mockMessages={mockMessages}
-        realtimeMessages={realtimeMsgs}
-        senderMap={senderMap}
-        isSelectMode={isSelectMode}
-        selectedIds={selectedIds}
-        onToggleSelect={toggleSelect}
-        deletedIds={deletedIds}
-        typingUsernames={typingUsernames}
-        myUserId={session?.user?.id}
-      />
+      {/* Top padding pushes message content below the floating header */}
+      <div className={`flex flex-col flex-1 overflow-hidden ${conversation ? 'pt-[68px]' : ''}`}>
+        <MessageList
+          mockMessages={mockMessages}
+          realtimeMessages={realtimeMsgs}
+          senderMap={senderMap}
+          isSelectMode={isSelectMode}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelect}
+          deletedIds={deletedIds}
+          typingUsernames={typingUsernames}
+          myUserId={session?.user?.id}
+        />
+      </div>
 
       {/* Footer: delete bar or input */}
       <AnimatePresence mode="wait">

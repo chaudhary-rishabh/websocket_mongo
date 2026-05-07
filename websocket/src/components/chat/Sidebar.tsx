@@ -73,7 +73,7 @@ function SidebarContent({
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#F6EEE3] rounded-[25px]">
+    <div className="flex flex-col h-full bg-gradient-to-b from-[#F6EEE3] to-white rounded-[25px]">
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-5 pt-5 pb-3">

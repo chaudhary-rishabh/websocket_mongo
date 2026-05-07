@@ -165,3 +165,11 @@
   0%, 100% { transform: scaleY(0.6); }
   50% { transform: scaleY(1); }
 }
+
+/* Subtle grid texture for white backgrounds */
+.bg-texture {
+  background-image:
+    linear-gradient(rgba(155, 118, 83, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(155, 118, 83, 0.06) 1px, transparent 1px);
+  background-size: 22px 22px;
+}

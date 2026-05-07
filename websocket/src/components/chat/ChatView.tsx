@@ -44,8 +44,10 @@ export default function ChatView({ conversationId }: ChatViewProps) {
       <ChatHeader
         conversation={conversation}
         isSelectMode={isSelectMode}
+        selectedCount={selectedIds.size}
         onEnterSelectMode={() => setIsSelectMode(true)}
         onExitSelectMode={cancelSelect}
+        onDeleteSelected={handleDelete}
       />
 
       <MessageList

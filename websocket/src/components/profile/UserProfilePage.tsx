@@ -35,7 +35,7 @@ export default function UserProfilePage({ user }: UserProfilePageProps) {
   )
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white bg-texture">
 
       {/* ── Top bar ── */}
       <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-[#E0D5C5] px-4 py-3 flex items-center gap-3">

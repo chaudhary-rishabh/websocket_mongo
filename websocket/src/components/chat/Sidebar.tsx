@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Search, MessageSquare, X, Trash2, SquarePen, Settings, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Search, MessageSquare, X, Trash2, SquarePen, Settings, LogOut, PanelLeftClose, PanelLeftOpen, Eye } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useChatStore } from '@/lib/store'
 import { CURRENT_USER } from '@/lib/mock-data'
@@ -35,6 +35,7 @@ function SidebarContent({
   const [isSelectMode, setIsSelectMode] = useState(false)
   const [selectedIds,  setSelectedIds]  = useState<Set<string>>(new Set())
   const [deletedIds,   setDeletedIds]   = useState<Set<string>>(new Set())
+  const [hiddenIds,    setHiddenIds]    = useState<Set<string>>(new Set())
 
   const toggleSelect = (id: string) =>
     setSelectedIds((prev) => {
@@ -47,6 +48,20 @@ function SidebarContent({
     setDeletedIds((prev) => new Set([...prev, ...selectedIds]))
     setSelectedIds(new Set())
     setIsSelectMode(false)
+  }
+
+  const hideSelected = () => {
+    setHiddenIds((prev) => new Set([...prev, ...selectedIds]))
+    setSelectedIds(new Set())
+    setIsSelectMode(false)
+  }
+
+  const unHideConv = (id: string) =>
+    setHiddenIds((prev) => { const next = new Set(prev); next.delete(id); return next })
+
+  const deleteHiddenConv = (id: string) => {
+    setHiddenIds((prev) => { const next = new Set(prev); next.delete(id); return next })
+    setDeletedIds((prev) => new Set([...prev, id]))
   }
 
   const cancelSelect = () => {
@@ -160,7 +175,10 @@ function SidebarContent({
           isSelectMode={isSelectMode}
           selectedIds={selectedIds}
           deletedIds={deletedIds}
+          hiddenIds={hiddenIds}
           onToggleSelect={toggleSelect}
+          onUnhideConv={unHideConv}
+          onDeleteHiddenConv={deleteHiddenConv}
         />
       </div>
 
@@ -178,6 +196,14 @@ function SidebarContent({
             <span className="flex-1 text-sm text-[#9A8474]">
               {selectedIds.size === 0 ? 'Tap to select' : `${selectedIds.size} chat${selectedIds.size > 1 ? 's' : ''} selected`}
             </span>
+            <button
+              onClick={hideSelected}
+              disabled={selectedIds.size === 0}
+              className="flex items-center gap-1.5 bg-[#7C5C3E] hover:bg-[#9B7653] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold px-3 py-2 rounded-xl transition-colors duration-200"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              Hide
+            </button>
             <button
               onClick={handleDelete}
               disabled={selectedIds.size === 0}

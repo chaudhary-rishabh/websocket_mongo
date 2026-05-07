@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, Phone, MoreVertical, Menu, ChevronDown, CheckSquare, X } from 'lucide-react'
+import { Search, Phone, MoreVertical, Menu, ChevronDown, CheckSquare, X, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { AnimatePresence } from 'framer-motion'
 import type { Conversation } from '@/lib/schemas'
@@ -12,15 +12,19 @@ import GroupMembersModal from './GroupMembersModal'
 interface ChatHeaderProps {
   conversation: Conversation
   isSelectMode: boolean
+  selectedCount: number
   onEnterSelectMode: () => void
   onExitSelectMode: () => void
+  onDeleteSelected: () => void
 }
 
 export default function ChatHeader({
   conversation,
   isSelectMode,
+  selectedCount,
   onEnterSelectMode,
   onExitSelectMode,
+  onDeleteSelected,
 }: ChatHeaderProps) {
   const { toggleSidebar, setSearchOpen } = useChatStore()
   const [membersOpen, setMembersOpen] = useState(false)
@@ -74,15 +78,25 @@ export default function ChatHeader({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-1.5">
           {isSelectMode ? (
-            <button
-              onClick={onExitSelectMode}
-              className="flex items-center gap-1.5 text-xs font-semibold text-[#9A8474] hover:text-[#7C5C3E] px-2 py-1.5 rounded-xl hover:bg-[#EDE4D6] transition-colors"
-            >
-              <X className="w-3.5 h-3.5" />
-              Cancel
-            </button>
+            <>
+              <button
+                onClick={onDeleteSelected}
+                disabled={selectedCount === 0}
+                className="flex items-center gap-1.5 text-xs font-semibold text-red-500 hover:text-white hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed px-2.5 py-1.5 rounded-xl border border-red-200 hover:border-red-500 transition-all duration-200"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete{selectedCount > 0 ? ` (${selectedCount})` : ''}
+              </button>
+              <button
+                onClick={onExitSelectMode}
+                className="flex items-center gap-1.5 text-xs font-semibold text-[#9A8474] hover:text-[#7C5C3E] px-2 py-1.5 rounded-xl hover:bg-[#EDE4D6] transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+                Cancel
+              </button>
+            </>
           ) : (
             <>
               <button

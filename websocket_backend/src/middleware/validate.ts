@@ -14,7 +14,12 @@ export function validate(schema: ZodSchema, target: Target = 'body'): RequestHan
       })
       return
     }
-    req[target] = result.data as never
+    if (target === 'query') {
+      // req.query is a getter-only property in Express v5 — use defineProperty
+      Object.defineProperty(req, 'query', { value: result.data, writable: true, configurable: true })
+    } else {
+      req[target] = result.data as never
+    }
     next()
   }
 }

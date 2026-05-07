@@ -2,7 +2,6 @@ import express from 'express'
 import helmet from 'helmet'
 import cors from 'cors'
 import hpp from 'hpp'
-import mongoSanitize from 'express-mongo-sanitize'
 // pino-http uses CJS exports; cast for ESM + NodeNext compat
 import _pinoHttp from 'pino-http'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -34,7 +33,24 @@ app.use(
   }),
 )
 app.use(hpp())
-app.use(mongoSanitize())
+
+// Strip MongoDB operator keys ($...) from req.body — compatible with Express v5
+// (express-mongo-sanitize mutates req.query which is read-only in Express v5)
+function sanitizeValue(val: unknown): unknown {
+  if (Array.isArray(val)) return val.map(sanitizeValue)
+  if (val !== null && typeof val === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
+      if (!k.startsWith('$') && !k.includes('.')) out[k] = sanitizeValue(v)
+    }
+    return out
+  }
+  return val
+}
+app.use((req, _res, next) => {
+  if (req.body) req.body = sanitizeValue(req.body) as typeof req.body
+  next()
+})
 
 // ── Request parsing ──────────────────────────────────────────────────────────
 app.use(express.json({ limit: '1mb' }))

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Geist, Inter } from 'next/font/google'
+import Providers from '@/components/ui/providers'
 import './globals.css'
 
 const geist = Geist({
@@ -23,7 +24,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geist.variable} ${inter.variable} h-full antialiased`}>
       <body className="h-full" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   )

@@ -86,15 +86,20 @@ export default function MessageList({
       {realtimeMessages
         .filter((m) => !deletedIds.has(m._id))
         .map((message, index) => {
-          const senderId = typeof message.sender === 'string' ? message.sender : message.sender._id
-          const isMe = senderId === myUserId
-          const senderInfo = senderMap[senderId]
+          // senderId may be a populated object or a raw string
+          const populated = message.senderId && typeof message.senderId === 'object'
+            ? message.senderId as import('@/lib/chat-types').ApiMessageSender
+            : null
+          const senderId = populated ? populated._id : (message.senderId as string) ?? ''
+          const isMe = !!myUserId && senderId === myUserId
           const isSelected = selectedIds.has(message._id)
 
-          // Adapt ApiMessage to the Message shape MessageBubble expects
+          // Adapt ApiMessage → Message shape for MessageBubble
           const adapted: Message = {
             id: message._id,
-            conversationId: message.conversationId,
+            conversationId: typeof message.conversationId === 'string'
+              ? message.conversationId
+              : String(message.conversationId),
             senderId,
             type: message.type as 'text' | 'image' | 'voice',
             content: message.content,
@@ -109,16 +114,13 @@ export default function MessageList({
             }, []),
           }
 
-          // Adapted sender in mock User shape
+          // Prefer populated sender data; fall back to senderMap from conversation members
+          const senderInfo = populated
+            ? { id: populated._id, name: populated.displayName, avatar: populated.avatar, initials: populated.displayName.slice(0, 2).toUpperCase() }
+            : senderMap[senderId]
+
           const adaptedSender = senderInfo
-            ? {
-                id: senderInfo.id,
-                name: senderInfo.name,
-                avatar: senderInfo.avatar ?? '',
-                initials: senderInfo.initials,
-                isOnline: false,
-                lastSeen: '',
-              }
+            ? { id: senderInfo.id, name: senderInfo.name, avatar: senderInfo.avatar ?? '', initials: senderInfo.initials, isOnline: false, lastSeen: '' }
             : undefined
 
           return (

@@ -1,4 +1,4 @@
-// ─── API shapes (from backend MongoDB) ──────────────────────────────────────
+// ─── API shapes (match backend MongoDB field names exactly) ─────────────────
 
 export interface ApiUser {
   _id: string
@@ -12,29 +12,37 @@ export interface ApiUser {
   lastSeen?: string
 }
 
+export interface ApiMessageSender {
+  _id: string
+  username: string
+  displayName: string
+  avatar?: string
+}
+
 export interface ApiMessage {
   _id: string
   conversationId: string
-  sender: ApiUser | string
+  /** Populated user object from API/WS; raw string ID for optimistic messages */
+  senderId: ApiMessageSender | string
   type: 'text' | 'image' | 'voice' | 'file'
   content: string
   mediaUrl?: string
   replyTo?: string
   reactions: { userId: string; emoji: string }[]
-  readBy: string[]
+  readBy: { userId: string; readAt: string }[]
   createdAt: string
   updatedAt: string
-  /** Optimistic UI — present only before server confirms */
+  /** Present only before server confirms (optimistic UI) */
   tempId?: string
   isPending?: boolean
 }
 
 export interface ApiConversation {
   _id: string
-  type: 'direct' | 'group'
+  type: 'dm' | 'group'
   name?: string
   avatar?: string
-  participants: ApiUser[]
+  members: ApiUser[]
   lastMessage?: ApiMessage
   lastMessageTime?: string
   unreadCount?: number

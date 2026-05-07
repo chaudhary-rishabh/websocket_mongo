@@ -66,7 +66,7 @@ export default function ConversationItem({
           )}>
             {name}
           </span>
-          <span className="text-[11px] text-[#B0A090] flex-shrink-0">{formatTime(lastMessageTime)}</span>
+          <span suppressHydrationWarning className="text-[11px] text-[#B0A090] flex-shrink-0">{formatTime(lastMessageTime)}</span>
         </div>
 
         <div className="flex items-center justify-between gap-2 mt-0.5">

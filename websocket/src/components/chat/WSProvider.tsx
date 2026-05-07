@@ -59,11 +59,11 @@ export default function WSProvider() {
         }
 
         case 'TYPING':
-          setTyping(event.conversationId, event.userId, true)
+          setTyping(event.conversationId, event.userId, event.username, true)
           break
 
         case 'STOP_TYPING':
-          setTyping(event.conversationId, event.userId, false)
+          setTyping(event.conversationId, event.userId, '', false)
           break
 
         case 'USER_ONLINE':

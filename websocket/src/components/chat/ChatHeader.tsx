@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Search, Phone, MoreVertical, Menu, ChevronDown, CheckSquare, X, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { AnimatePresence } from 'framer-motion'
+import { useSession } from 'next-auth/react'
 import type { Conversation } from '@/lib/schemas'
 import Avatar from '@/components/ui/Avatar'
 import { useChatStore } from '@/lib/store'
@@ -27,12 +28,18 @@ export default function ChatHeader({
   onDeleteSelected,
 }: ChatHeaderProps) {
   const { toggleSidebar, setSearchOpen } = useChatStore()
+  const { data: session } = useSession()
   const [membersOpen, setMembersOpen] = useState(false)
 
   const isGroup = conversation.type === 'group'
   const subtitle = isGroup
     ? `${conversation.members.length} members${conversation.onlineCount ? ` · ${conversation.onlineCount} online` : ''}`
     : 'Direct message'
+
+  // For DMs: find the other person's ID for the profile link
+  const otherUserId = !isGroup
+    ? conversation.members.find((m) => m !== session?.user?.id) ?? conversation.members[0]
+    : null
 
   return (
     <>
@@ -54,7 +61,7 @@ export default function ChatHeader({
               <Avatar src={conversation.avatar} initials={conversation.initials} name={conversation.name} id={conversation.id} size="md" />
             </button>
           ) : (
-            <Link href={`/user/${conversation.members.find((m) => m !== 'me') ?? ''}`}>
+            <Link href={`/user/${otherUserId ?? ''}`}>
               <Avatar src={conversation.avatar} initials={conversation.initials} name={conversation.name} id={conversation.id} size="md" />
             </Link>
           )
@@ -72,7 +79,11 @@ export default function ChatHeader({
               <ChevronDown className="w-3.5 h-3.5 text-[#9A8474] group-hover:text-[#7C5C3E] transition-colors flex-shrink-0" />
             </button>
           ) : (
-            <h1 className="text-base font-bold text-[#2A1F14] truncate">{conversation.name}</h1>
+            <Link href={`/user/${otherUserId ?? ''}`} className="group block">
+              <h1 className="text-base font-bold text-[#2A1F14] truncate group-hover:text-[#7C5C3E] transition-colors duration-150">
+                {conversation.name}
+              </h1>
+            </Link>
           )}
           {!isSelectMode && <p className="text-xs text-[#9A8474]">{subtitle}</p>}
         </div>

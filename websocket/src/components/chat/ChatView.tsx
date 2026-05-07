@@ -51,8 +51,9 @@ export default function ChatView({ conversationId }: ChatViewProps) {
     })
       .then((r) => r.json())
       .then((json) => {
-        if (json.success && Array.isArray(json.data)) {
-          prependMessages(conversationId, json.data as ApiMessage[])
+        const items = json.data?.items ?? json.data
+        if (json.success && Array.isArray(items)) {
+          prependMessages(conversationId, items as ApiMessage[])
         }
       })
       .catch(() => {/* ignore */})
@@ -102,7 +103,7 @@ export default function ChatView({ conversationId }: ChatViewProps) {
       const optimistic: ApiMessage = {
         _id: tempId,
         conversationId,
-        sender: session?.user?.id ?? 'me',
+        senderId: session?.user?.id ?? '',
         type: 'text',
         content,
         reactions: [],
@@ -131,28 +132,38 @@ export default function ChatView({ conversationId }: ChatViewProps) {
   // Mock conversation path
   const mockConversation = !isReal ? getConversationById(conversationId) : null
   const conversation: Conversation | null = isReal
-    ? (apiConversation
-        ? {
-            id: apiConversation._id,
-            type: apiConversation.type,
-            name: apiConversation.name ?? apiConversation.participants.map((p) => p.displayName).join(', '),
-            avatar: apiConversation.avatar,
-            initials: (apiConversation.name ?? 'CH').slice(0, 2).toUpperCase(),
-            lastMessage: apiConversation.lastMessage?.content ?? '',
-            lastMessageTime: apiConversation.lastMessageTime ?? apiConversation.createdAt,
-            members: apiConversation.participants.map((p) => p._id),
-            onlineCount: apiConversation.participants.filter((p) => p.isOnline).length,
-            isPinned: apiConversation.isPinned ?? false,
-            unreadCount: apiConversation.unreadCount ?? 0,
-            lastMessageSentByMe: false,
-          } satisfies Conversation
+    ? (apiConversation && Array.isArray(apiConversation.members)
+        ? (() => {
+            const isDm = apiConversation.type === 'dm'
+            // For DMs show only the OTHER person's name/avatar
+            const other = isDm
+              ? apiConversation.members.find((p) => p._id !== session?.user?.id)
+              : null
+            const displayName = isDm
+              ? (other?.displayName ?? 'Unknown')
+              : (apiConversation.name ?? apiConversation.members.map((p) => p.displayName).join(', '))
+            return {
+              id: apiConversation._id,
+              type: isDm ? 'direct' : 'group',
+              name: displayName,
+              avatar: isDm ? other?.avatar : apiConversation.avatar,
+              initials: displayName.slice(0, 2).toUpperCase(),
+              lastMessage: apiConversation.lastMessage?.content ?? '',
+              lastMessageTime: apiConversation.lastMessageTime ?? apiConversation.createdAt,
+              members: apiConversation.members.map((p) => p._id),
+              onlineCount: apiConversation.members.filter((p) => p.isOnline).length,
+              isPinned: apiConversation.isPinned ?? false,
+              unreadCount: apiConversation.unreadCount ?? 0,
+              lastMessageSentByMe: false,
+            } satisfies Conversation
+          })()
         : null)
     : (mockConversation ?? null)
 
   // Build senderMap for real messages
   const senderMap: Record<string, { id: string; name: string; avatar?: string; initials: string }> = {}
-  if (isReal && apiConversation) {
-    for (const p of apiConversation.participants) {
+  if (isReal && apiConversation && Array.isArray(apiConversation.members)) {
+    for (const p of apiConversation.members) {
       senderMap[p._id] = {
         id: p._id,
         name: p.displayName,
@@ -166,11 +177,11 @@ export default function ChatView({ conversationId }: ChatViewProps) {
   const realtimeMsgs = realtimeMessages[conversationId] ?? []
   const mockMessages = !isReal ? getMessages(conversationId).filter((m) => !deletedIds.has(m.id)) : []
 
-  // Typing usernames in this conversation
-  const typingSet = typingUsers[conversationId] ?? new Set<string>()
-  const typingUsernames = [...typingSet]
-    .filter((uid) => uid !== session?.user?.id)
-    .map((uid) => senderMap[uid]?.name ?? 'Someone')
+  // Typing usernames in this conversation (userId→username map)
+  const typingMap = typingUsers[conversationId] ?? {}
+  const typingUsernames = Object.entries(typingMap)
+    .filter(([uid]) => uid !== session?.user?.id)
+    .map(([, name]) => name)
 
   if (!conversation && !isReal) {
     return (

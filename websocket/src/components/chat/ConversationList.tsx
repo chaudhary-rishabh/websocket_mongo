@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, EyeOff, Eye, Trash2, X, Check } from 'lucide-react'
+import { useSession } from 'next-auth/react'
 import { useChatStore } from '@/lib/store'
 import { CONVERSATIONS } from '@/lib/mock-data'
 import type { Conversation } from '@/lib/schemas'
@@ -280,20 +281,26 @@ export default function ConversationList({
   const router = useRouter()
 
   // Adapt real API conversations to local Conversation shape
-  const adaptedReal: Conversation[] = realConversations.map((rc) => ({
-    id: rc._id,
-    type: rc.type,
-    name: rc.name ?? rc.participants.map((p) => p.displayName).join(', '),
-    avatar: rc.avatar,
-    initials: (rc.name ?? rc.participants.map((p) => p.displayName).join(', ')).slice(0, 2).toUpperCase(),
-    members: rc.participants.map((p) => p._id),
-    onlineCount: rc.participants.filter((p) => p.isOnline).length,
-    lastMessage: rc.lastMessage?.content ?? '',
-    lastMessageTime: rc.lastMessageTime ?? rc.createdAt,
-    unreadCount: rc.unreadCount ?? 0,
-    isPinned: rc.isPinned ?? false,
-    lastMessageSentByMe: false,
-  }))
+  const adaptedReal: Conversation[] = realConversations
+    .filter((rc) => Array.isArray(rc.members))
+    .map((rc) => {
+      const memberNames = rc.members.map((p) => p.displayName).join(', ')
+      return {
+        id: rc._id,
+        // backend uses 'dm', local schema uses 'direct'
+        type: rc.type === 'dm' ? 'direct' : 'group',
+        name: rc.name ?? memberNames,
+        avatar: rc.avatar,
+        initials: (rc.name ?? memberNames).slice(0, 2).toUpperCase(),
+        members: rc.members.map((p) => p._id),
+        onlineCount: rc.members.filter((p) => p.isOnline).length,
+        lastMessage: rc.lastMessage?.content ?? '',
+        lastMessageTime: rc.lastMessageTime ?? rc.createdAt,
+        unreadCount: rc.unreadCount ?? 0,
+        isPinned: rc.isPinned ?? false,
+        lastMessageSentByMe: false,
+      } satisfies Conversation
+    })
 
   const typeFilter = activeTab === 'people' ? 'direct' : 'group'
 

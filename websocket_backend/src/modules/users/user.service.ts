@@ -24,13 +24,15 @@ export async function searchUsers(query: SearchUsersQuery, currentUserId: string
   const { q, page, limit } = query
   const skip = (page - 1) * limit
 
-  const filter = {
-    $or: [
-      { username: { $regex: q, $options: 'i' } },
-      { displayName: { $regex: q, $options: 'i' } },
-    ],
-    _id: { $ne: currentUserId },
-  }
+  const filter = q.trim()
+    ? {
+        $or: [
+          { username: { $regex: q, $options: 'i' } },
+          { displayName: { $regex: q, $options: 'i' } },
+        ],
+        _id: { $ne: currentUserId },
+      }
+    : { _id: { $ne: currentUserId } }
 
   const [users, total] = await Promise.all([
     User.find(filter).skip(skip).limit(limit).lean(),

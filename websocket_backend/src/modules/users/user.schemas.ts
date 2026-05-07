@@ -10,7 +10,7 @@ export const UserIdParamSchema = z.object({
 })
 
 export const SearchUsersQuerySchema = z.object({
-  q: z.string().trim().min(1).max(100),
+  q: z.string().trim().max(100).optional().default(''),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 })

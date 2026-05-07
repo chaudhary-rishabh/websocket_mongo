@@ -32,9 +32,9 @@ interface ChatStore {
   replaceTempMessage: (convId: string, tempId: string, msg: ApiMessage) => void
   prependMessages: (convId: string, msgs: ApiMessage[]) => void
 
-  // ── Typing ───────────────────────────────────────────────────────────
-  typingUsers: Record<string, Set<string>>
-  setTyping: (convId: string, userId: string, isTyping: boolean) => void
+  // ── Typing — convId → { userId: displayName } ────────────────────────
+  typingUsers: Record<string, Record<string, string>>
+  setTyping: (convId: string, userId: string, username: string, isTyping: boolean) => void
 
   // ── Online presence ──────────────────────────────────────────────────
   onlineUserIds: Set<string>
@@ -98,10 +98,11 @@ export const useChatStore = create<ChatStore>((set) => ({
 
   // Typing
   typingUsers: {},
-  setTyping: (convId, userId, isTyping) =>
+  setTyping: (convId, userId, username, isTyping) =>
     set((s) => {
-      const prev = s.typingUsers[convId] ? new Set(s.typingUsers[convId]) : new Set<string>()
-      isTyping ? prev.add(userId) : prev.delete(userId)
+      const prev = { ...(s.typingUsers[convId] ?? {}) }
+      if (isTyping) prev[userId] = username
+      else delete prev[userId]
       return { typingUsers: { ...s.typingUsers, [convId]: prev } }
     }),
 

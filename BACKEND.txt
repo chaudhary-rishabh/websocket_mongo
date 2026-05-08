@@ -1,0 +1,690 @@
+================================================================================
+  CHATAPP — BACKEND IMPLEMENTATION DEEP DIVE
+  Express 5 · TypeScript · ESM · Node.js 22 · WebSocket · DeepSeek SSE
+================================================================================
+
+
+────────────────────────────────────────────────────────────────────────────────
+1. SERVER BOOTSTRAP (src/index.ts)
+────────────────────────────────────────────────────────────────────────────────
+
+bootstrap() runs in order:
+  1. await initJWT()         — load RS256 private + public keys into memory
+  2. initCloudinary()        — configure Cloudinary SDK with env credentials
+  3. await connectDB()       — connect Mongoose to MongoDB (with retry logic)
+  4. http.createServer(app)  — wrap Express app in Node HTTP server
+  5. createWebSocketServer(httpServer)  — attach ws.WebSocketServer to same port
+  6. httpServer.listen(env.PORT)
+
+Graceful shutdown:
+  SIGTERM / SIGINT → httpServer.close() → process.exit(0)
+  Forced exit after 10s timeout if server does not close in time
+  uncaughtException + unhandledRejection → logger.fatal + process.exit(1)
+
+Package manager: pnpm
+Module system: ESM ("type": "module" in package.json)
+All internal imports use .js extension (required for Node ESM even for .ts sources)
+
+
+────────────────────────────────────────────────────────────────────────────────
+2. EXPRESS APP (src/app.ts)
+────────────────────────────────────────────────────────────────────────────────
+
+Middleware stack in order:
+
+  1. helmet()
+       Sets security HTTP headers (X-Content-Type-Options, X-Frame-Options,
+       Content-Security-Policy, etc.)
+
+  2. cors({ origin: env.CORS_ORIGINS.split(','), credentials: true })
+       Allows configured origins, exposes X-Request-Id header
+       Methods: GET, POST, PATCH, PUT, DELETE, OPTIONS
+
+  3. hpp()
+       HTTP Parameter Pollution protection — deduplicates array query params
+
+  4. Custom sanitizeValue() middleware
+       Strips MongoDB operator keys ($...) from req.body recursively
+       NOTE: express-mongo-sanitize was dropped because it mutates req.query
+       which is read-only in Express v5 — custom sanitizer on req.body only
+
+  5. express.json({ limit: '1mb' })
+     express.urlencoded({ extended: true, limit: '1mb' })
+
+  6. requestId middleware
+       Assigns X-Request-Id header (UUID) to every request for tracing
+
+  7. pinoHttp({ logger })
+       Structured JSON request logging
+       Custom log level: 5xx → error, 4xx → warn, else → info
+       Serializers strip sensitive fields, keep method/url/statusCode
+
+  8. globalRateLimit
+       express-rate-limit: window env.RATE_LIMIT_WINDOW_MS (default 15min),
+       max env.RATE_LIMIT_MAX (default 100) requests per IP
+
+  Routes:
+    GET  /health                             — uptime check, no auth
+    /api/v1/auth                             — auth routes
+    /api/v1/users                            — user routes
+    /api/v1/conversations                    — conversation routes
+    /api/v1/conversations/:convId/messages   — message routes (nested)
+    /api/v1/media                            — upload routes
+    /api/v1/ai                               — AI chat + analysis routes
+
+  404 handler: catches all unmatched routes
+  errorHandler: global error handler (converts AppError to JSON)
+
+Error class (src/middleware/error.ts)
+  class AppError extends Error {
+    code: string
+    status: number
+    static notFound(name)  → 404
+    static forbidden(msg)  → 403
+    static conflict(msg)   → 409
+  }
+  errorHandler middleware: if AppError → { success:false, error:{code,message} }
+  Unknown errors → 500 with sanitized message in production
+
+
+────────────────────────────────────────────────────────────────────────────────
+3. ENVIRONMENT VALIDATION (src/config/env.ts)
+────────────────────────────────────────────────────────────────────────────────
+
+Uses Zod to validate process.env at startup. Fails fast if any required var is missing.
+
+  const envSchema = z.object({
+    NODE_ENV: z.enum(['development','production','test']).default('development'),
+    PORT: z.coerce.number().int().positive().default(4000),
+    MONGODB_URI: z.string().min(1),
+    JWT_PRIVATE_KEY: z.string().min(1),
+    JWT_PUBLIC_KEY: z.string().min(1),
+    JWT_ACCESS_EXPIRES: z.string().default('15m'),
+    JWT_REFRESH_EXPIRES: z.string().default('7d'),
+    CLOUDINARY_CLOUD_NAME: z.string().min(1),
+    CLOUDINARY_API_KEY: z.string().min(1),
+    CLOUDINARY_API_SECRET: z.string().min(1),
+    DEEPSEEK_API_KEY: z.string().min(1).optional(),   // AI disabled if absent
+    CORS_ORIGINS: z.string().default('http://localhost:3000'),
+    RATE_LIMIT_WINDOW_MS: z.coerce.number().default(900_000),
+    RATE_LIMIT_MAX: z.coerce.number().default(100),
+  })
+
+  If validation fails: throws with a formatted list of invalid fields → process crashes
+  export const env = parseEnv()   — singleton, imported everywhere
+
+
+────────────────────────────────────────────────────────────────────────────────
+4. JWT — RS256 KEY MANAGEMENT (src/config/jwt.ts)
+────────────────────────────────────────────────────────────────────────────────
+
+Algorithm: RS256 (asymmetric)
+Library: jose (Web Crypto API compatible, works natively in Node 22)
+
+initJWT():
+  - Reads env.JWT_PRIVATE_KEY and env.JWT_PUBLIC_KEY (PEM strings with \n escaping)
+  - Calls jose.importPKCS8 and jose.importSPKI to parse keys into CryptoKey objects
+  - Stores them in module-level variables
+
+getPrivateKey() / getPublicKey():
+  - Return the stored CryptoKey objects
+  - Throw if called before initJWT() (should never happen — bootstrap order ensures this)
+
+Why RS256 over HS256:
+  - Private key signs (server-side only, in .env, never sent anywhere)
+  - Public key verifies (can be shared; used in both HTTP middleware and WS server)
+  - Enables future stateless verification by external services using the public key
+
+
+────────────────────────────────────────────────────────────────────────────────
+5. AUTH MODULE (src/modules/auth/)
+────────────────────────────────────────────────────────────────────────────────
+
+Files: auth.schemas.ts, auth.service.ts, auth.controller.ts, auth.routes.ts
+
+SCHEMAS (Zod)
+  RegisterInput: { email: z.string().email(), username: z.string().min(3).max(30),
+                   password: z.string().min(8), displayName: z.string().min(1).max(60) }
+  LoginInput:    { email: z.string().email(), password: z.string().min(1) }
+
+SERVICE (auth.service.ts)
+
+  register(input: RegisterInput)
+    1. Check if email or username already taken (User.findOne with $or)
+       If duplicate → AppError.conflict('That email/username is already taken')
+    2. bcrypt.hash(password, 12)   — BCRYPT_ROUNDS = 12
+    3. User.create({ email, username, displayName, passwordHash })
+    4. signAccessToken({ sub: userId, email, username, role })
+    5. signRefreshToken(userId)
+    6. bcrypt.hash(refreshToken, 10) → store as refreshTokenHash on the User doc
+    7. Return { user, accessToken, refreshToken }
+
+  login(input: LoginInput)
+    1. User.findOne({ email }).select('+passwordHash')  — passwordHash is select:false by default
+    2. If no user → AppError 401 INVALID_CREDENTIALS
+    3. user.comparePassword(password)  — calls bcrypt.compare internally
+    4. If invalid → AppError 401
+    5. signAccessToken + signRefreshToken
+    6. Store new refreshTokenHash on user doc
+    7. user.toJSON() strips passwordHash + refreshTokenHash from response
+    8. Return { user, accessToken, refreshToken }
+
+  refresh(token: string)
+    1. jwtVerify(token, publicKey, { algorithms: ['RS256'] })
+       On error → AppError 401 INVALID_TOKEN
+    2. User.findById(payload.sub).select('+refreshTokenHash')
+    3. If no user or no refreshTokenHash → AppError 401 (token revoked)
+    4. bcrypt.compare(token, user.refreshTokenHash)
+       If mismatch → AppError 401 (rotation: old tokens are invalid after refresh)
+    5. Sign new accessToken + new refreshToken
+    6. Store new refreshTokenHash (old token now invalid — rolling refresh)
+    7. Return { accessToken, refreshToken }
+
+  logout(userId: string)
+    User.findByIdAndUpdate(userId, { $unset: { refreshTokenHash: '' } })
+    — Clears the stored hash; any existing refresh token is now unverifiable
+
+  signAccessToken({ sub, email, username, role })
+    new SignJWT(payload)
+      .setProtectedHeader({ alg: 'RS256' })
+      .setIssuedAt()
+      .setExpirationTime(env.JWT_ACCESS_EXPIRES)  // '15m'
+      .setJti(uuidv4())   // unique token ID
+      .sign(getPrivateKey())
+
+  signRefreshToken(userId)
+    new SignJWT({ sub: userId, type: 'refresh' })
+      .setExpirationTime(env.JWT_REFRESH_EXPIRES)  // '7d'
+      .setJti(uuidv4())
+      .sign(getPrivateKey())
+
+CONTROLLER (auth.controller.ts)
+  Each handler: validate request body with schema.parse() → call service → sendSuccess()
+  Errors from service propagate to global errorHandler
+
+ROUTES
+  POST /register → registerHandler
+  POST /login    → loginHandler
+  POST /logout   → authenticate() middleware + logoutHandler
+  POST /refresh  → refreshHandler
+
+
+────────────────────────────────────────────────────────────────────────────────
+6. AUTH MIDDLEWARE (src/middleware/auth.ts)
+────────────────────────────────────────────────────────────────────────────────
+
+authenticate() — factory function returning Express RequestHandler
+
+  1. Extract 'Authorization' header → must start with 'Bearer '
+  2. Slice off 'Bearer ' → token string
+  3. jwtVerify<AuthPayload>(token, getPublicKey(), { algorithms: ['RS256'] })
+  4. On success: (req as AuthRequest).user = payload
+  5. On failure: sendError(res, 'UNAUTHORIZED', ..., { status: 401 })
+
+AuthPayload type:
+  { sub: string (userId), email, username, role: 'user'|'admin', jti, iat, exp }
+
+requireRole(...roles) — factory returning a RequestHandler
+  Checks (req as AuthRequest).user.role is in the allowed roles list
+  Returns 403 FORBIDDEN if not
+
+AuthRequest interface:
+  Extends Express Request, adds user: AuthPayload
+
+Used in every protected route:
+  router.use(authenticate())
+  router.patch('/admin-only', requireRole('admin'), handler)
+
+
+────────────────────────────────────────────────────────────────────────────────
+7. USERS MODULE (src/modules/users/)
+────────────────────────────────────────────────────────────────────────────────
+
+Service functions:
+
+  getMe(userId)
+    User.findById(userId).lean()
+
+  updateMe(userId, input: { displayName?, bio? })
+    User.findByIdAndUpdate(userId, input, { new: true }).lean()
+
+  searchUsers(query: string, requesterId: string)
+    User.find({
+      _id: { $ne: requesterId },
+      $or: [
+        { username: { $regex: query, $options: 'i' } },
+        { displayName: { $regex: query, $options: 'i' } }
+      ]
+    }).limit(20).lean()
+
+  getUserById(userId: string)
+    User.findById(userId).lean()
+
+  setOnlineStatus(userId, isOnline: boolean)
+    User.findByIdAndUpdate(userId, {
+      $set: { isOnline, ...(isOnline ? {} : { lastSeen: new Date() }) }
+    })
+
+Routes:
+  All routes apply authenticate() middleware first
+  GET  /me         → getMe
+  PATCH /me        → updateMe (body: { displayName?, bio? })
+  GET  /search?q=  → searchUsers
+  GET  /:userId    → getUserById
+
+
+────────────────────────────────────────────────────────────────────────────────
+8. CONVERSATIONS MODULE (src/modules/conversations/)
+────────────────────────────────────────────────────────────────────────────────
+
+Service functions:
+
+  listConversations(userId)
+    Conversation.find({ members: userId })
+      .populate('members', 'username displayName avatar isOnline lastSeen')
+      .sort({ updatedAt: -1 })
+      .lean()
+
+  createConversation(input, creatorId)
+    - Deduplicate: allMembers = [...new Set([...input.members, creatorId])]
+    - DM: if allMembers.length !== 2 → 400 error
+    - DM deduplication: findOne({ type:'dm', members:{ $all:allMembers, $size:2 } })
+      If existing DM found → return it (no duplicate DMs)
+    - Create: { type, name?, members as ObjectIds, admins:[creatorId], createdBy:creatorId }
+
+  getConversation(conversationId, userId)
+    findById + populate members
+    Check userId is in members array → 403 if not
+
+  updateConversation(conversationId, userId, input)
+    Check userId is in admins → 403 if not
+    Object.assign(conv, input) → conv.save()
+
+  addMembers(conversationId, userId, { userIds })
+    Check type === 'group', check userId is admin
+    Filter out already-present members, push new ObjectIds to conv.members
+
+  removeMember(conversationId, adminId, targetUserId)
+    Check type === 'group', check adminId is admin
+    targetUserId cannot be adminId (use leave instead)
+    Filter targetUserId from conv.members and conv.admins
+    conv.save()
+
+  leaveConversation(conversationId, userId)
+    Filter userId from members and admins
+    If conv.members becomes empty → delete the conversation entirely
+    Else if admins becomes empty → promote first remaining member to admin
+
+Routes:
+  GET  /                        → listConversations
+  POST /                        → createConversation
+  GET  /:id                     → getConversation
+  PATCH /:id                    → updateConversation (admin)
+  DELETE /:id/leave             → leaveConversation
+  POST /:id/members             → addMembers (admin)
+  DELETE /:id/members/:memberId → removeMember (admin)
+
+
+────────────────────────────────────────────────────────────────────────────────
+9. MESSAGES MODULE (src/modules/messages/)
+────────────────────────────────────────────────────────────────────────────────
+
+All operations first call assertMember(conversationId, userId):
+  Fetch conv.members, verify userId is in it → 403 if not
+
+Service functions:
+
+  listMessages(conversationId, userId, query: { cursor?, limit })
+    - filter: { conversationId, deletedFor: { $ne: userId } }
+    - cursor-based pagination: if query.cursor → add { _id: { $lt: ObjectId(cursor) } }
+    - Sort by _id descending, limit, populate senderId
+    - Reverse result array (to return chronological order)
+    - Return { items, hasMore, nextCursor }
+
+  sendMessage(conversationId, userId, { type, content, mediaUrl?, replyTo? })
+    - assertMember check
+    - Message.create({ conversationId, senderId, type, content, ... })
+    - Update conversation.lastMessage: { content, senderId, type, timestamp }
+    - Return message.populate('senderId', 'username displayName avatar')
+    NOTE: sendMessage is called by the WebSocket handler, not an HTTP endpoint
+
+  editMessage(messageId, userId, { content })
+    - Only text messages can be edited
+    - Only the sender can edit
+    - msg.content = content; msg.editedAt = new Date(); msg.save()
+
+  deleteMessage(messageId, userId)
+    - If sender → hard delete (findByIdAndDelete)
+    - If not sender → soft delete ($addToSet: { deletedFor: userId })
+
+  addReaction(messageId, userId, { emoji })
+    - Find message, check if user already reacted with same emoji
+    - If yes → toggle off (splice from reactions array)
+    - If no → push { userId, emoji }
+    - msg.save()
+
+  markRead(conversationId, userId)
+    Message.updateMany(
+      { conversationId, senderId: { $ne: userId }, 'readBy.userId': { $ne: userId } },
+      { $addToSet: { readBy: { userId, readAt: new Date() } } }
+    )
+    — Bulk-marks all unread messages in the conversation as read
+
+HTTP Routes (nested under /conversations/:conversationId/messages):
+  GET  /     → listMessages (cursor: ?cursor=<msgId>&limit=50)
+  PATCH /:id → editMessage
+  DELETE /:id → deleteMessage
+
+WebSocket Routes (no HTTP equivalents):
+  SEND_MESSAGE  → sendMessage service → broadcast NEW_MESSAGE to room
+  ADD_REACTION  → addReaction service → broadcast REACTION_UPDATED to room
+  MARK_READ     → markRead service → broadcast MESSAGES_READ to room
+
+
+────────────────────────────────────────────────────────────────────────────────
+10. MEDIA MODULE (src/modules/media/)
+────────────────────────────────────────────────────────────────────────────────
+
+Uses Multer (v2) for multipart parsing + Cloudinary for storage
+
+Multer config:
+  storage: memoryStorage()   — files held in Buffer in memory, not disk
+  limits: { fileSize: 10MB }
+  fileFilter: accepts image/* and audio/* MIME types
+
+Upload flow:
+  1. Client POST with multipart/form-data (file field)
+  2. Multer parses → req.file = { buffer, mimetype, originalname, size }
+  3. Handler streams buffer to Cloudinary using upload_stream
+  4. Cloudinary returns { secure_url, public_id, ... }
+  5. Response: { url: secure_url, publicId }
+
+Routes:
+  POST /upload → general file upload → returns { url, publicId }
+  POST /avatar → upload + User.findByIdAndUpdate(userId, { avatar: url })
+
+
+────────────────────────────────────────────────────────────────────────────────
+11. WEBSOCKET SERVER — ARCHITECTURE
+────────────────────────────────────────────────────────────────────────────────
+
+Files:
+  ws.server.ts    — server setup, auth, lifecycle
+  ws.rooms.ts     — in-memory room + user socket maps
+  ws.handler.ts   — event dispatch
+  ws.types.ts     — AuthenticatedSocket, ClientEvent, ServerEvent types
+
+──────────────────────────────────────
+ws.rooms.ts — In-Memory Data Structures
+──────────────────────────────────────
+
+  const rooms = new Map<string, Set<AuthenticatedSocket>>()
+    conversationId → Set of all sockets currently in that room
+
+  const userSockets = new Map<string, Set<AuthenticatedSocket>>()
+    userId → Set of sockets (supports multiple tabs / devices per user)
+
+  joinRoom(conversationId, socket)    — adds socket to room Set (creates Set if new)
+  leaveRoom(conversationId, socket)   — removes; deletes room entry if empty
+  leaveAllRooms(socket)               — on disconnect, removes socket from every room
+
+  broadcastToRoom(convId, payload, excludeSocket?)
+    — sends JSON to all OPEN sockets in the room, optionally skipping one
+    — checks socket.readyState === 1 (OPEN) before sending
+
+  broadcastToRoomAll(convId, payload)
+    — same but excludeSocket = undefined (sender also receives)
+
+  registerUserSocket(userId, socket)  — adds to userSockets map
+  unregisterUserSocket(userId, socket)— removes; deletes map entry if Set empty
+
+  sendToUser(userId, payload)
+    — sends to all sockets for a userId (all tabs)
+
+  isUserOnline(userId): boolean
+    — checks if userSockets has any socket for userId with size > 0
+
+  getSocketRooms(socket): string[]
+    — returns all conversationIds this socket is joined to (used on disconnect)
+
+──────────────────────────────────────
+ws.server.ts — Connection Handling
+──────────────────────────────────────
+
+  createWebSocketServer(httpServer):
+    WebSocketServer({ server: httpServer, path: '/ws' })
+
+  Heartbeat (30s interval):
+    For each client: if !socket.isAlive → terminate()
+    Else: socket.isAlive = false, socket.ping()
+    'pong' event from client: socket.isAlive = true
+    — Detects and cleans up stale/zombie connections
+
+  On connection:
+    1. Parse URL query: ?token=<jwt>
+    2. jwtVerify(token, publicKey, { algorithms: ['RS256'] })
+    3. On success: socket.user = payload; socket.userId = payload.sub
+    4. On failure: send ERROR event, socket.close(1008)
+    5. registerUserSocket(socket.userId, socket)
+    6. await handleConnect(socket)
+
+  Socket events:
+    'pong'    → socket.isAlive = true
+    'message' → handleMessage(socket, data.toString())
+    'close'   → getSocketRooms(socket) → unregisterUserSocket → leaveAllRooms → handleDisconnect
+    'error'   → logger.error
+
+──────────────────────────────────────
+ws.handler.ts — Event Handling
+──────────────────────────────────────
+
+  handleConnect(socket):
+    1. setOnlineStatus(socket.userId, true)
+    2. send(socket, { type: 'CONNECTED', userId })
+    3. listConversations(socket.userId) → for each conv:
+         joinRoom(convId, socket)
+         broadcastToRoom(convId, { type: 'USER_ONLINE', userId }, socket)
+    — User is auto-joined to ALL their conversation rooms on connect
+
+  handleDisconnect(socket, roomIds):
+    1. if !isUserOnline(userId) → setOnlineStatus(userId, false), update lastSeen
+       NOTE: only marks offline if no remaining sockets (multi-tab safe)
+    2. For each roomId: broadcastToRoom(convId, { type:'USER_OFFLINE', userId, lastSeen }, socket)
+
+  handleMessage(socket, raw):
+    JSON.parse raw → ClientEvent
+    Switch on event.type:
+
+    PING
+      send(socket, { type: 'PONG' })
+
+    JOIN_CONVERSATION
+      joinRoom(event.conversationId, socket)
+
+    LEAVE_CONVERSATION
+      leaveRoom(event.conversationId, socket)
+
+    SEND_MESSAGE
+      msg = await sendMessage(convId, socket.userId, { type, content, mediaUrl?, replyTo? })
+      broadcastToRoomAll(convId, { type:'NEW_MESSAGE', message: msg.toObject(), tempId })
+      NOTE: broadcastToRoomAll includes the sender — frontend uses tempId to replace the
+      optimistic bubble
+
+    TYPING_START
+      broadcastToRoom(convId, { type:'TYPING', conversationId, userId, username }, socket)
+      — excludes sender (they know they're typing)
+
+    TYPING_STOP
+      broadcastToRoom(convId, { type:'STOP_TYPING', conversationId, userId }, socket)
+
+    MARK_READ
+      await markRead(convId, socket.userId)
+      broadcastToRoom(convId, { type:'MESSAGES_READ', conversationId, userId, readAt }, socket)
+
+    ADD_REACTION
+      msg = await addReaction(messageId, socket.userId, { emoji })
+      broadcastToRoomAll(convId, { type:'REACTION_UPDATED', message: msg.toObject() })
+
+AuthenticatedSocket type extends WebSocket:
+  user: AuthPayload
+  userId: string
+  isAlive: boolean
+
+
+────────────────────────────────────────────────────────────────────────────────
+12. AI MODULE (src/modules/ai/)
+────────────────────────────────────────────────────────────────────────────────
+
+Files: ai.session.model.ts, ai.message.model.ts, ai.routes.ts
+
+All routes: router.use(authenticate())
+
+──────────────────────────────────────
+Helper functions
+──────────────────────────────────────
+
+getOrCreateSession(userId: string)
+  AiSession.findOne({ userId })
+  If none → AiSession.create({ userId, messageCount: 0, lastActivityAt: new Date() })
+  Returns the session document
+
+persist(sessionId, userId, role, content, type, metadata?)
+  AiMessage.create({ sessionId, userId, role, content, type, metadata })
+  AiSession.findByIdAndUpdate(sessionId, {
+    $inc: { messageCount: 1 },
+    lastActivityAt: new Date()
+  })
+
+pipeStream(upstream: globalThis.Response, res: Express.Response, onDone: (text) => Promise<void>)
+  - Reads the DeepSeek SSE stream chunk by chunk using body.getReader()
+  - Buffer accumulation: buffer += decoder.decode(chunk, { stream: true })
+  - Splits on '\n', keeps incomplete last line in buffer
+  - Per complete 'data: ...' line:
+      Skip '[DONE]'
+      Parse JSON { choices: [{ delta: { content? } }] }
+      Forward: res.write(`data: ${JSON.stringify({ content })}\n\n`)
+      Accumulate in accumulated string
+  - client disconnect detection via req.once('close', ...) — sets clientGone=true
+  - Even if client disconnects mid-stream, accumulated persisted via onDone(accumulated)
+
+──────────────────────────────────────
+GET /api/v1/ai/messages
+──────────────────────────────────────
+
+  Cursor-based pagination:
+    session = AiSession.findOne({ userId }).lean()
+    filter = { sessionId: session._id }
+    if query.before → filter._id = { $lt: before }
+    messages = AiMessage.find(filter).sort({ createdAt: 1 }).limit(limit + 1).lean()
+    hasMore = messages.length > limit
+    if hasMore → messages.pop()
+
+  Response: { messages, hasMore }
+
+──────────────────────────────────────
+POST /api/v1/ai/chat
+──────────────────────────────────────
+
+  Body: { messages: { role, content }[] }
+  Last message must have role: 'user'
+
+  1. getOrCreateSession(userId)
+  2. persist(session._id, userId, 'user', newUserMessage.content, 'chat')
+  3. Set SSE headers: Content-Type: text/event-stream, Cache-Control: no-cache,
+     Connection: keep-alive, X-Accel-Buffering: no
+  4. res.flushHeaders()
+  5. fetch('https://api.deepseek.com/chat/completions', {
+       body: { model:'deepseek-chat', messages:[systemPrompt, ...messages],
+               stream:true, max_tokens:2048, temperature:0.7 }
+     })
+  6. pipeStream(upstream, res, async (accumulated) => {
+       persist(session._id, userId, 'assistant', accumulated, 'chat', { model:'deepseek-chat' })
+     })
+
+  System prompt: helpful assistant, markdown formatting, concise
+
+──────────────────────────────────────
+POST /api/v1/ai/analyze-user
+──────────────────────────────────────
+
+  Body: { userId?: string; userLabel?: string }
+  userId = 'me' or omitted → self-analysis
+  userId = real MongoDB ObjectId → analyze another user
+
+  1. Resolve target: User.findById(targetId).lean()
+  2. Find conversations: isSelf → { members: targetId } else { members: { $all:[sub,targetId] } }
+  3. Fetch up to 500 text messages across those conversations:
+       Message.find({ conversationId:{ $in:convIds }, type:'text',
+                      deletedFor:{ $nin:[targetId] } })
+         .populate('senderId','displayName').sort({ createdAt:1 }).limit(500)
+  4. Format messages grouped by conversation:
+       === Direct Message ===
+       12 May [Alice]: Hello there
+       12 May [Bob]: Hey!
+       ...
+  5. Build userPrompt:
+       isSelf: 'Please analyse ME (name) based on my chat history below.\n\n<block>'
+       other:  'Please analyse name based on their chat history below.\n\n<block>'
+  6. Persist user-turn label: persist(session._id, userId, 'user', requestLabel, 'analysis')
+  7. SSE headers + flushHeaders
+  8. fetch DeepSeek with ANALYSIS_SYSTEM_PROMPT + userPrompt, stream:true, temperature:0.6
+  9. pipeStream → persist assistant response with metadata:
+       { model:'deepseek-chat', analyzedUserId:targetId, analyzedUserName:targetName }
+
+ANALYSIS_SYSTEM_PROMPT (static, injected server-side):
+  6-section structure:
+    1. Personality & Communication Style
+    2. Social Dynamics
+    3. Emotional Patterns & Current State
+    4. Behavioural Tendencies
+    5. Key Insight
+    6. Closing Note
+  Rules: warm, non-judgmental, only from provided messages, acknowledge sparse data
+
+
+────────────────────────────────────────────────────────────────────────────────
+13. API RESPONSE HELPERS (src/shared/utils/apiResponse.ts)
+────────────────────────────────────────────────────────────────────────────────
+
+  sendSuccess(res, data, options?: { status?, message? })
+    res.status(status ?? 200).json({ success: true, data, message? })
+
+  sendError(res, code, message, options?: { status? })
+    res.status(status ?? 400).json({ success: false, error: { code, message } })
+
+  Used consistently in all controllers — never res.json() called directly.
+  Standard envelope for all responses makes frontend error handling uniform.
+
+
+────────────────────────────────────────────────────────────────────────────────
+14. LOGGING (src/shared/utils/logger.ts)
+────────────────────────────────────────────────────────────────────────────────
+
+  import pino from 'pino'
+  export const logger = pino({
+    level: env.NODE_ENV === 'production' ? 'info' : 'debug',
+    ...(env.NODE_ENV !== 'production' ? { transport: { target: 'pino-pretty' } } : {})
+  })
+
+  - Development: pretty-printed coloured output via pino-pretty
+  - Production: raw JSON lines (for log aggregators like Datadog, CloudWatch)
+  - Used everywhere: logger.info, logger.error, logger.warn, logger.fatal
+  - pino-http logs every request/response automatically
+  - Structured logging: logger.error({ err, userId }, 'message')
+
+
+────────────────────────────────────────────────────────────────────────────────
+15. SHARED TYPES (src/shared/types/index.ts)
+────────────────────────────────────────────────────────────────────────────────
+
+  AuthPayload (extends jose JWTPayload):
+    sub: string      — userId (MongoDB ObjectId as string)
+    email: string
+    username: string
+    role: 'user' | 'admin'
+    jti: string      — unique token ID (from uuidv4)
+
+  AuthRequest extends Express Request:
+    user: AuthPayload
+
+  Used in: authenticate middleware, all controller handlers, WS auth

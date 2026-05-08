@@ -18,6 +18,7 @@ import userRoutes from './modules/users/user.routes.js'
 import conversationRoutes from './modules/conversations/conversation.routes.js'
 import messageRoutes from './modules/messages/message.routes.js'
 import mediaRoutes from './modules/media/media.routes.js'
+import aiRoutes from './modules/ai/ai.routes.js'
 
 const app = express()
 
@@ -89,6 +90,7 @@ app.use(`${API}/users`, userRoutes)
 app.use(`${API}/conversations`, conversationRoutes)
 app.use(`${API}/conversations/:conversationId/messages`, messageRoutes)
 app.use(`${API}/media`, mediaRoutes)
+app.use(`${API}/ai`, aiRoutes)
 
 // ── 404 ──────────────────────────────────────────────────────────────────────
 app.use((_req, res) => {

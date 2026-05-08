@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Search, MessageSquare, X, Trash2, SquarePen, Settings, LogOut, PanelLeftClose, PanelLeftOpen, Eye } from 'lucide-react'
+import { Search, MessageSquare, X, Trash2, SquarePen, Settings, LogOut, PanelLeftClose, PanelLeftOpen, Eye, Bot, Sparkles } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useChatStore } from '@/lib/store'
 import ConversationList from './ConversationList'
@@ -191,6 +191,25 @@ function SidebarContent({
           onDeleteHiddenConv={deleteHiddenConv}
         />
       </div>
+
+      {/* ── AI Chat shortcut — pinned above bottom nav ── */}
+      {!isSelectMode && (
+        <div className="flex-shrink-0 px-3 pb-2">
+          <Link
+            href="/chat/ai"
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl bg-[#1A1A1A] hover:bg-[#2D2D2D] transition-colors duration-200"
+          >
+            <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center flex-shrink-0">
+              <Bot className="w-4 h-4 text-[#1A1A1A]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-white">AI Assistant</p>
+              <p className="text-[10px] text-white/50">Powered by DeepSeek</p>
+            </div>
+            <Sparkles className="w-3.5 h-3.5 text-white/30 flex-shrink-0" />
+          </Link>
+        </div>
+      )}
 
       {/* ── Select mode action bar OR bottom nav ── */}
       <AnimatePresence mode="wait">

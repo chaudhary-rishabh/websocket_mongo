@@ -15,6 +15,8 @@ const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().min(1),
   CLOUDINARY_API_SECRET: z.string().min(1),
 
+  DEEPSEEK_API_KEY: z.string().min(1).optional(),
+
   CORS_ORIGINS: z.string().default('http://localhost:3000'),
 
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),

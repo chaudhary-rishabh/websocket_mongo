@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
+import { Loader2 } from 'lucide-react'
 import type { Message } from '@/lib/schemas'
 import type { ApiMessage } from '@/lib/chat-types'
 import { getUserById, CURRENT_USER } from '@/lib/mock-data'
@@ -29,6 +30,10 @@ interface MessageListProps {
   deletedIds?: Set<string>
   typingUsernames?: string[]
   myUserId?: string
+  /** Pagination */
+  hasMore?: boolean
+  isLoadingMore?: boolean
+  onLoadMore?: () => void
 }
 
 export default function MessageList({
@@ -41,20 +46,112 @@ export default function MessageList({
   deletedIds = new Set(),
   typingUsernames = [],
   myUserId,
+  hasMore = false,
+  isLoadingMore = false,
+  onLoadMore,
 }: MessageListProps) {
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const containerRef   = useRef<HTMLDivElement>(null)
+  const topSentinelRef = useRef<HTMLDivElement>(null)
+  const bottomRef      = useRef<HTMLDivElement>(null)
 
+  // Stable refs so the IntersectionObserver closure never goes stale
+  const isLoadingMoreRef = useRef(isLoadingMore)
+  const hasMoreRef       = useRef(hasMore)
+  const onLoadMoreRef    = useRef(onLoadMore)
+
+  useEffect(() => { isLoadingMoreRef.current = isLoadingMore }, [isLoadingMore])
+  useEffect(() => { hasMoreRef.current = hasMore }, [hasMore])
+  useEffect(() => { onLoadMoreRef.current = onLoadMore }, [onLoadMore])
+
+  // ── Scroll-height snapshot before pagination prepend ──────────────────
+  // Captured the moment the IntersectionObserver fires (before any re-render).
+  const scrollHeightBeforeRef = useRef(0)
+
+  // ── Track the first real message ID to detect prepends vs appends ──────
+  const prevFirstMsgIdRef = useRef('')
+
+  // ── Restore scroll position after older messages are prepended ─────────
+  // useLayoutEffect fires synchronously after DOM mutations, before paint.
+  useLayoutEffect(() => {
+    const firstId = realtimeMessages[0]?._id ?? ''
+    if (
+      firstId &&
+      prevFirstMsgIdRef.current &&
+      firstId !== prevFirstMsgIdRef.current &&
+      scrollHeightBeforeRef.current > 0
+    ) {
+      const container = containerRef.current
+      if (container) {
+        container.scrollTop = container.scrollHeight - scrollHeightBeforeRef.current
+      }
+      scrollHeightBeforeRef.current = 0
+    }
+    prevFirstMsgIdRef.current = firstId
+  }, [realtimeMessages])
+
+  // ── Track whether user is near the bottom (to gate auto-scroll) ────────
+  const isNearBottomRef = useRef(true)
+  const handleScroll = () => {
+    const el = containerRef.current
+    if (!el) return
+    isNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+  }
+
+  // ── Auto-scroll to bottom only for new arrivals, not for pagination ─────
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (isNearBottomRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }, [mockMessages, realtimeMessages, typingUsernames])
 
+  // ── IntersectionObserver on top sentinel → trigger pagination ──────────
+  useEffect(() => {
+    const sentinel  = topSentinelRef.current
+    const container = containerRef.current
+    if (!sentinel || !container) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !isLoadingMoreRef.current && hasMoreRef.current && onLoadMoreRef.current) {
+          // Snapshot scroll height before the state update causes a re-render
+          scrollHeightBeforeRef.current = container.scrollHeight
+          onLoadMoreRef.current()
+        }
+      },
+      { root: container, threshold: 0 },
+    )
+
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, []) // Set up once; uses refs for all mutable values
+
   return (
-    <div className="flex-1 overflow-y-auto chat-scrollbar px-4 py-4 flex flex-col gap-4">
+    <div
+      ref={containerRef}
+      onScroll={handleScroll}
+      className="flex-1 overflow-y-auto chat-scrollbar px-4 py-4 flex flex-col gap-4"
+    >
+      {/* ── Top sentinel — IntersectionObserver watches this ── */}
+      <div ref={topSentinelRef} />
+
+      {/* ── Loading spinner for older messages ── */}
+      {isLoadingMore && (
+        <div className="flex justify-center py-2">
+          <Loader2 className="w-4 h-4 animate-spin text-[#6B7280]" />
+        </div>
+      )}
+
+      {/* ── "No more messages" hint ── */}
+      {!hasMore && realtimeMessages.length > 0 && (
+        <p className="text-center text-[10px] text-[#9CA3AF] py-1 select-none">
+          Beginning of conversation
+        </p>
+      )}
 
       {/* ── Mock messages ── */}
       {mockMessages.map((message, index) => {
-        const isMe = message.senderId === CURRENT_USER.id
-        const sender = isMe ? CURRENT_USER : getUserById(message.senderId)
+        const isMe    = message.senderId === CURRENT_USER.id
+        const sender  = isMe ? CURRENT_USER : getUserById(message.senderId)
         const isSelected = selectedIds.has(message.id)
 
         return (
@@ -86,15 +183,13 @@ export default function MessageList({
       {realtimeMessages
         .filter((m) => !deletedIds.has(m._id))
         .map((message, index) => {
-          // senderId may be a populated object or a raw string
           const populated = message.senderId && typeof message.senderId === 'object'
             ? message.senderId as import('@/lib/chat-types').ApiMessageSender
             : null
-          const senderId = populated ? populated._id : (message.senderId as string) ?? ''
-          const isMe = !!myUserId && senderId === myUserId
+          const senderId  = populated ? populated._id : (message.senderId as string) ?? ''
+          const isMe      = !!myUserId && senderId === myUserId
           const isSelected = selectedIds.has(message._id)
 
-          // Adapt ApiMessage → Message shape for MessageBubble
           const adapted: Message = {
             id: message._id,
             conversationId: typeof message.conversationId === 'string'
@@ -115,7 +210,6 @@ export default function MessageList({
             }, []),
           }
 
-          // Prefer populated sender data; fall back to senderMap from conversation members
           const senderInfo = populated
             ? { id: populated._id, name: populated.displayName, avatar: populated.avatar, initials: populated.displayName.slice(0, 2).toUpperCase() }
             : senderMap[senderId]

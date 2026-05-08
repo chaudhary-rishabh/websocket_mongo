@@ -45,6 +45,10 @@ interface ChatStore {
   // ── Real conversations from API ──────────────────────────────────────
   realConversations: ApiConversation[]
   setRealConversations: (convs: ApiConversation[]) => void
+
+  // ── Message pagination (keyed by conversationId) ─────────────────────
+  messagePagination: Record<string, { nextCursor?: string; hasMore: boolean }>
+  setMessagePagination: (convId: string, info: { nextCursor?: string; hasMore: boolean }) => void
 }
 
 export const useChatStore = create<ChatStore>((set) => ({
@@ -135,4 +139,11 @@ export const useChatStore = create<ChatStore>((set) => ({
   // Real conversations
   realConversations: [],
   setRealConversations: (convs) => set({ realConversations: convs }),
+
+  // Message pagination
+  messagePagination: {},
+  setMessagePagination: (convId, info) =>
+    set((s) => ({
+      messagePagination: { ...s.messagePagination, [convId]: info },
+    })),
 }))

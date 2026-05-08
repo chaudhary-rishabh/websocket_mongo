@@ -1,15 +1,16 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useSession } from 'next-auth/react'
+import { useSession, signOut } from 'next-auth/react'
 import { wsClient } from '@/lib/ws-client'
 import { useChatStore } from '@/lib/store'
+import { setAuth, clearAuth, authFetch } from '@/lib/api'
 import type { ApiMessage, ServerEvent } from '@/lib/chat-types'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
 
 export default function WSProvider() {
-  const { data: session } = useSession()
+  const { data: session, update } = useSession()
   const {
     setWsConnected,
     appendMessage,
@@ -21,12 +22,32 @@ export default function WSProvider() {
     markMessagesRead,
   } = useChatStore()
 
-  // Load real conversations from API
+  // Register token store for 401-retry; sign out if refresh token is exhausted
+  useEffect(() => {
+    if (!session?.accessToken || !session?.refreshToken) return
+
+    if (session.error === 'RefreshAccessTokenError') {
+      void signOut({ callbackUrl: '/login' })
+      return
+    }
+
+    setAuth({
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
+      onRefreshed: async (tokens) => {
+        await update(tokens)
+      },
+    })
+
+    return () => {
+      clearAuth()
+    }
+  }, [session?.accessToken, session?.refreshToken, session?.error, update])
+
+  // Load real conversations (with 401 retry)
   useEffect(() => {
     if (!session?.accessToken) return
-    fetch(`${API}/api/v1/conversations`, {
-      headers: { Authorization: `Bearer ${session.accessToken}` },
-    })
+    authFetch(`${API}/api/v1/conversations`, {}, session.accessToken)
       .then((r) => r.json())
       .then((json) => {
         if (json.success && Array.isArray(json.data)) {

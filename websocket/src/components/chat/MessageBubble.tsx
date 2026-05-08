@@ -25,11 +25,36 @@ const WAVEFORM = [3, 6, 9, 7, 4, 8, 11, 6, 3, 7, 10, 5, 8, 6, 3, 7, 11, 6, 4, 8,
 
 /* ─── Shared helpers ──────────────────────────────────────────────────── */
 
-function MetaRow({ viewCount, timestamp, sent }: { viewCount: number; timestamp: string; sent?: boolean }) {
+function MetaRow({
+  viewCount, timestamp, sent, isPending, isRead,
+}: {
+  viewCount: number; timestamp: string; sent?: boolean; isPending?: boolean; isRead?: boolean
+}) {
   return (
     <div className={cn('flex items-center gap-1 text-[10px] mt-1 justify-end', sent ? 'text-[#3B82F6]/70' : 'text-[#6B7280]')}>
-      <Eye className="w-3 h-3" />
-      <span>{viewCount}</span>
+      {sent ? (
+        isPending ? (
+          /* Single grey tick — optimistic, not yet confirmed */
+          <Check className="w-3 h-3 text-[#9CA3AF]" strokeWidth={2.5} />
+        ) : isRead ? (
+          /* Double blue ticks — read by at least one person */
+          <span className="flex items-center">
+            <Check className="w-3 h-3 text-[#2563EB] -mr-1.5" strokeWidth={2.5} />
+            <Check className="w-3 h-3 text-[#2563EB]" strokeWidth={2.5} />
+          </span>
+        ) : (
+          /* Double grey ticks — delivered/sent, not yet read */
+          <span className="flex items-center">
+            <Check className="w-3 h-3 text-[#9CA3AF] -mr-1.5" strokeWidth={2.5} />
+            <Check className="w-3 h-3 text-[#9CA3AF]" strokeWidth={2.5} />
+          </span>
+        )
+      ) : (
+        <>
+          <Eye className="w-3 h-3" />
+          <span>{viewCount}</span>
+        </>
+      )}
       <span className="ml-1">{formatMessageTime(timestamp)}</span>
     </div>
   )
@@ -125,7 +150,7 @@ export default function MessageBubble({
                 : 'bg-white text-[#1F2937] rounded-bl-sm',
             )}>
               <p className="text-sm leading-relaxed">{message.content}</p>
-              <MetaRow viewCount={message.viewCount} timestamp={message.timestamp} sent={isMe} />
+              <MetaRow viewCount={message.viewCount} timestamp={message.timestamp} sent={isMe} isPending={message.isPending} isRead={message.isRead} />
             </div>
             <ReactionBar reactions={reactions} onAdd={addReaction} />
           </div>
@@ -217,7 +242,7 @@ export default function MessageBubble({
               {message.content}
             </span>
           </div>
-          <MetaRow viewCount={message.viewCount} timestamp={message.timestamp} sent={false} />
+          <MetaRow viewCount={message.viewCount} timestamp={message.timestamp} sent={isMe} isPending={message.isPending} isRead={message.isRead} />
           <ReactionBar reactions={reactions} onAdd={addReaction} />
         </div>
 

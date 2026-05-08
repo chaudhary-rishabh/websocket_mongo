@@ -18,6 +18,7 @@ export default function WSProvider() {
     setUserOnline,
     setUserOffline,
     setRealConversations,
+    markMessagesRead,
   } = useChatStore()
 
   // Load real conversations from API
@@ -66,6 +67,10 @@ export default function WSProvider() {
           setTyping(event.conversationId, event.userId, '', false)
           break
 
+        case 'MESSAGES_READ':
+          markMessagesRead(event.conversationId, event.userId, event.readAt)
+          break
+
         case 'USER_ONLINE':
           setUserOnline(event.userId)
           break
@@ -81,7 +86,7 @@ export default function WSProvider() {
       wsClient.disconnect()
       setWsConnected(false)
     }
-  }, [session?.accessToken, setWsConnected, appendMessage, replaceTempMessage, setTyping, setUserOnline, setUserOffline])
+  }, [session?.accessToken, setWsConnected, appendMessage, replaceTempMessage, setTyping, setUserOnline, setUserOffline, markMessagesRead])
 
   return null
 }

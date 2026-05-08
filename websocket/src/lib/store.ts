@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { ApiMessage, ApiConversation } from './chat-types'
+import type { ApiMessage, ApiMessageSender, ApiConversation } from './chat-types'
 
 interface TypingState {
   /** conversationId → Set of userIds currently typing */
@@ -31,6 +31,7 @@ interface ChatStore {
   appendMessage: (convId: string, msg: ApiMessage) => void
   replaceTempMessage: (convId: string, tempId: string, msg: ApiMessage) => void
   prependMessages: (convId: string, msgs: ApiMessage[]) => void
+  markMessagesRead: (convId: string, userId: string, readAt: string) => void
 
   // ── Typing — convId → { userId: displayName } ────────────────────────
   typingUsers: Record<string, Record<string, string>>
@@ -94,6 +95,20 @@ export const useChatStore = create<ChatStore>((set) => ({
       const existingIds = new Set(prev.map((m) => m._id))
       const newMsgs = msgs.filter((m) => !existingIds.has(m._id))
       return { realtimeMessages: { ...s.realtimeMessages, [convId]: [...newMsgs, ...prev] } }
+    }),
+  markMessagesRead: (convId, userId, readAt) =>
+    set((s) => {
+      const msgs = s.realtimeMessages[convId]
+      if (!msgs) return s
+      const updated = msgs.map((m) => {
+        const senderId = typeof m.senderId === 'object'
+          ? (m.senderId as ApiMessageSender)._id
+          : m.senderId
+        if (senderId === userId) return m
+        if (m.readBy.some((r) => r.userId === userId)) return m
+        return { ...m, readBy: [...m.readBy, { userId, readAt }] }
+      })
+      return { realtimeMessages: { ...s.realtimeMessages, [convId]: updated } }
     }),
 
   // Typing

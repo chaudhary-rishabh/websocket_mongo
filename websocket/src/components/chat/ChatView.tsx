@@ -73,8 +73,17 @@ export default function ChatView({ conversationId }: ChatViewProps) {
   useEffect(() => {
     if (!isReal) return
     wsClient.send({ type: 'JOIN_CONVERSATION', conversationId })
+    // Mark all messages read when entering the conversation
+    wsClient.send({ type: 'MARK_READ', conversationId })
     return () => { wsClient.send({ type: 'LEAVE_CONVERSATION', conversationId }) }
   }, [isReal, conversationId])
+
+  // ── Send MARK_READ when new real-time messages arrive ─────────────────
+  const realtimeMsgCount = realtimeMessages[conversationId]?.length ?? 0
+  useEffect(() => {
+    if (!isReal || realtimeMsgCount === 0) return
+    wsClient.send({ type: 'MARK_READ', conversationId })
+  }, [isReal, conversationId, realtimeMsgCount])
 
   // ── Message selection ──────────────────────────────────────────────────
   const toggleSelect = (id: string) =>

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { signIn } from 'next-auth/react'
 import { MessageSquare, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import GridBackground from '@/components/GridBackground'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -38,20 +39,26 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white bg-texture flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
+    <GridBackground>
+<div className="relative flex items-center justify-center min-h-screen p-4 overflow-hidden">
 
-        {/* Brand */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-[#2563EB] flex items-center justify-center shadow-md mb-4">
-            <MessageSquare className="w-7 h-7 text-white" />
+  {/* Blue backdrop object */}
+  <div className="absolute w-[200px] h-[200px] rounded-full bg-blue-500/50 blur-[60px] -z-0" />
+
+  {/* Login Card */}
+  <div className="relative z-10 w-full max-w-md bg-white/60 backdrop-blur-md border border-white/40 rounded-[30px] shadow-md p-8">
+          {/* Brand — logo beside title */}
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-12 rounded-2xl bg-[#2563EB] flex items-center justify-center shadow-md flex-shrink-0">
+              <MessageSquare className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-[#1F2937]">Welcome back</h1>
+              <p className="text-sm text-[#6B7280]">Sign in to continue chatting</p>
+            </div>
           </div>
-          <h1 className="text-2xl font-bold text-[#1F2937]">Welcome back</h1>
-          <p className="text-sm text-[#6B7280] mt-1">Sign in to continue chatting</p>
-        </div>
 
-        {/* Card */}
-        <div className="bg-[#EFF6FF] rounded-[25px] border border-[#BFDBFE] p-6 shadow-sm">
+          {/* Form */}
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
 
             {/* Error */}
@@ -72,7 +79,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 autoComplete="email"
-                className="w-full bg-white border border-[#BFDBFE] rounded-xl px-4 py-3 text-sm text-[#1F2937] placeholder:text-[#93C5FD] outline-none focus:border-[#3B82F6] focus:ring-2 focus:ring-[#3B82F6]/20 transition-all duration-200"
+                className="w-full bg-white/80 border border-[#BFDBFE] rounded-xl px-4 py-3 text-sm text-[#1F2937] placeholder:text-[#93C5FD] outline-none focus:border-[#3B82F6] focus:ring-2 focus:ring-[#3B82F6]/20 transition-all duration-200"
               />
             </div>
 
@@ -88,7 +95,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   autoComplete="current-password"
-                  className="w-full bg-white border border-[#BFDBFE] rounded-xl px-4 py-3 pr-11 text-sm text-[#1F2937] placeholder:text-[#93C5FD] outline-none focus:border-[#3B82F6] focus:ring-2 focus:ring-[#3B82F6]/20 transition-all duration-200"
+                  className="w-full bg-white/80 border border-[#BFDBFE] rounded-xl px-4 py-3 pr-11 text-sm text-[#1F2937] placeholder:text-[#93C5FD] outline-none focus:border-[#3B82F6] focus:ring-2 focus:ring-[#3B82F6]/20 transition-all duration-200"
                 />
                 <button
                   type="button"
@@ -115,16 +122,19 @@ export default function LoginPage() {
               {loading ? 'Signing in…' : 'Sign In'}
             </button>
           </form>
-        </div>
 
-        {/* Footer */}
-        <p className="text-center text-sm text-[#6B7280] mt-5">
-          Don&apos;t have an account?{' '}
-          <Link href="/signup" className="font-semibold text-[#2563EB] hover:text-[#3B82F6] transition-colors">
-            Sign up
-          </Link>
-        </p>
+          {/* Footer */}
+          <div className="mt-6 pt-5 border-t border-neutral-200/60 text-center">
+            <p className="text-sm text-[#6B7280]">
+              Don&apos;t have an account?{' '}
+              <Link href="/signup" className="font-semibold text-[#2563EB] hover:text-[#3B82F6] transition-colors">
+                Sign up
+              </Link>
+            </p>
+          </div>
+
+        </div>
       </div>
-    </div>
+    </GridBackground>
   )
 }

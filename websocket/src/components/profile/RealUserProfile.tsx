@@ -43,8 +43,8 @@ export default function RealUserProfile({ userId }: { userId: string }) {
     return (
       <div className="min-h-screen bg-white bg-texture flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 rounded-full border-2 border-[#C4A882] border-t-[#7C5C3E] animate-spin" />
-          <p className="text-sm text-[#9A8474]">Loading profile…</p>
+          <div className="w-8 h-8 rounded-full border-2 border-[#93C5FD] border-t-[#2563EB] animate-spin" />
+          <p className="text-sm text-[#6B7280]">Loading profile…</p>
         </div>
       </div>
     )
@@ -53,8 +53,8 @@ export default function RealUserProfile({ userId }: { userId: string }) {
   if (error || !user) {
     return (
       <div className="min-h-screen bg-white bg-texture flex flex-col items-center justify-center gap-4">
-        <p className="text-sm text-[#9A8474]">Profile not found</p>
-        <Link href="/chat" className="text-xs font-semibold text-[#7C5C3E] hover:underline">
+        <p className="text-sm text-[#6B7280]">Profile not found</p>
+        <Link href="/chat" className="text-xs font-semibold text-[#2563EB] hover:underline">
           Back to chat
         </Link>
       </div>
@@ -67,11 +67,11 @@ export default function RealUserProfile({ userId }: { userId: string }) {
     <div className="min-h-screen bg-white bg-texture">
 
       {/* ── Top bar ── */}
-      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-[#E0D5C5] px-4 py-3 flex items-center gap-3">
-        <Link href="/chat" className="p-2 -ml-1 rounded-full hover:bg-[#EDE4D6] transition-colors">
-          <ArrowLeft className="w-4 h-4 text-[#9A8474]" />
+      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-[#BFDBFE] px-4 py-3 flex items-center gap-3">
+        <Link href="/chat" className="p-2 -ml-1 rounded-full hover:bg-[#DBEAFE] transition-colors">
+          <ArrowLeft className="w-4 h-4 text-[#6B7280]" />
         </Link>
-        <span className="text-sm font-semibold text-[#2A1F14]">Profile</span>
+        <span className="text-sm font-semibold text-[#1F2937]">Profile</span>
       </div>
 
       <div className="max-w-md mx-auto px-4 py-6 flex flex-col gap-3">
@@ -81,12 +81,12 @@ export default function RealUserProfile({ userId }: { userId: string }) {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="bg-[#F6EEE3] rounded-[25px] overflow-hidden border border-[#E0D5C5]"
+          className="bg-[#EFF6FF] rounded-[25px] overflow-hidden border border-[#BFDBFE]"
         >
-          <div className="h-20" style={{ background: 'linear-gradient(135deg, #9B7653 0%, #C4A882 100%)' }} />
+          <div className="h-20" style={{ background: 'linear-gradient(135deg, #3B82F6 0%, #93C5FD 100%)' }} />
 
           <div className="px-5 pb-5 flex flex-col items-center -mt-10">
-            <div className="w-20 h-20 rounded-full ring-4 ring-[#F6EEE3] overflow-hidden shadow-md bg-[#D4C4B0]">
+            <div className="w-20 h-20 rounded-full ring-4 ring-[#EFF6FF] overflow-hidden shadow-md bg-[#BFDBFE]">
               {user.avatar ? (
                 <Image
                   src={user.avatar}
@@ -96,14 +96,14 @@ export default function RealUserProfile({ userId }: { userId: string }) {
                   className="object-cover w-full h-full"
                 />
               ) : (
-                <div className="w-full h-full bg-[#7C5C3E] flex items-center justify-center">
+                <div className="w-full h-full bg-[#2563EB] flex items-center justify-center">
                   <span className="text-xl font-bold text-white">{initials}</span>
                 </div>
               )}
             </div>
 
-            <h2 className="mt-3 text-base font-bold text-[#2A1F14]">{user.displayName}</h2>
-            <p className="text-xs text-[#9A8474] mt-0.5">@{user.username}</p>
+            <h2 className="mt-3 text-base font-bold text-[#1F2937]">{user.displayName}</h2>
+            <p className="text-xs text-[#6B7280] mt-0.5">@{user.username}</p>
 
             <div className="mt-2">
               {user.isOnline ? (
@@ -112,7 +112,7 @@ export default function RealUserProfile({ userId }: { userId: string }) {
                   Online
                 </span>
               ) : (
-                <span className="text-xs text-[#9A8474]">
+                <span className="text-xs text-[#6B7280]">
                   {user.lastSeen
                     ? `Last seen ${formatTime(user.lastSeen)} ago`
                     : 'Offline'}
@@ -121,11 +121,11 @@ export default function RealUserProfile({ userId }: { userId: string }) {
             </div>
 
             <div className="mt-5 flex gap-3 w-full">
-              <button className="flex-1 flex items-center justify-center gap-2 bg-[#7C5C3E] hover:bg-[#9B7653] text-white text-sm font-semibold py-2.5 rounded-xl transition-colors duration-200">
+              <button className="flex-1 flex items-center justify-center gap-2 bg-[#2563EB] hover:bg-[#3B82F6] text-white text-sm font-semibold py-2.5 rounded-xl transition-colors duration-200">
                 <MessageCircle className="w-4 h-4" />
                 Message
               </button>
-              <button className="flex items-center justify-center gap-2 border border-[#E0D5C5] hover:bg-[#EDE4D6] text-[#7C5C3E] text-sm font-semibold py-2.5 px-4 rounded-xl transition-colors duration-200">
+              <button className="flex items-center justify-center gap-2 border border-[#BFDBFE] hover:bg-[#DBEAFE] text-[#2563EB] text-sm font-semibold py-2.5 px-4 rounded-xl transition-colors duration-200">
                 <Phone className="w-4 h-4" />
                 Call
               </button>
@@ -138,27 +138,27 @@ export default function RealUserProfile({ userId }: { userId: string }) {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.05 }}
-          className="bg-[#F6EEE3] rounded-[25px] overflow-hidden border border-[#E0D5C5]"
+          className="bg-[#EFF6FF] rounded-[25px] overflow-hidden border border-[#BFDBFE]"
         >
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-[#9A8474] px-5 pt-5 pb-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-[#6B7280] px-5 pt-5 pb-1.5">
             Info
           </p>
 
           <div className="flex items-center gap-3 px-5 py-3.5">
-            <AtSign className="w-[18px] h-[18px] text-[#9B7653] flex-shrink-0" />
+            <AtSign className="w-[18px] h-[18px] text-[#3B82F6] flex-shrink-0" />
             <div className="min-w-0">
-              <p className="text-[11px] text-[#9A8474] uppercase tracking-wide">Username</p>
-              <p className="text-sm font-medium text-[#2A1F14] truncate">@{user.username}</p>
+              <p className="text-[11px] text-[#6B7280] uppercase tracking-wide">Username</p>
+              <p className="text-sm font-medium text-[#1F2937] truncate">@{user.username}</p>
             </div>
           </div>
 
-          <div className="h-px bg-[#E0D5C5] mx-5" />
+          <div className="h-px bg-[#BFDBFE] mx-5" />
 
           <div className="flex items-center gap-3 px-5 py-3.5">
-            <Clock className="w-[18px] h-[18px] text-[#9B7653] flex-shrink-0" />
+            <Clock className="w-[18px] h-[18px] text-[#3B82F6] flex-shrink-0" />
             <div className="min-w-0">
-              <p className="text-[11px] text-[#9A8474] uppercase tracking-wide">Last seen</p>
-              <p className="text-sm font-medium text-[#2A1F14]">
+              <p className="text-[11px] text-[#6B7280] uppercase tracking-wide">Last seen</p>
+              <p className="text-sm font-medium text-[#1F2937]">
                 {user.isOnline
                   ? 'Active now'
                   : user.lastSeen

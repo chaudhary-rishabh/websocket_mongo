@@ -37,18 +37,18 @@ export default function ConversationItem({
         'w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all duration-200 rounded-2xl',
         isSelectMode
           ? isSelected
-            ? 'bg-[#E4D5C2]'
-            : 'hover:bg-[#EDE4D6]'
+            ? 'bg-[#BFDBFE]'
+            : 'hover:bg-[#DBEAFE]'
           : isActive
-            ? 'bg-[#E4D5C2] hover:bg-[#DFD0BC]'
-            : 'hover:bg-[#EDE4D6]',
+            ? 'bg-[#BFDBFE] hover:bg-[#BFDBFE]'
+            : 'hover:bg-[#DBEAFE]',
       )}
     >
       {/* Checkbox (select mode) */}
       {isSelectMode && (
         <div className={cn(
           'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all duration-150',
-          isSelected ? 'bg-[#7C5C3E] border-[#7C5C3E]' : 'border-[#C4B4A0] bg-white/60',
+          isSelected ? 'bg-[#2563EB] border-[#2563EB]' : 'border-[#93C5FD] bg-white/60',
         )}>
           {isSelected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
         </div>
@@ -62,25 +62,25 @@ export default function ConversationItem({
         <div className="flex items-center justify-between gap-2">
           <span className={cn(
             'text-sm font-semibold truncate',
-            isActive && !isSelectMode ? 'text-[#7C5C3E]' : 'text-[#2A1F14]',
+            isActive && !isSelectMode ? 'text-[#2563EB]' : 'text-[#1F2937]',
           )}>
             {name}
           </span>
-          <span suppressHydrationWarning className="text-[11px] text-[#B0A090] flex-shrink-0">{formatTime(lastMessageTime)}</span>
+          <span suppressHydrationWarning className="text-[11px] text-[#9CA3AF] flex-shrink-0">{formatTime(lastMessageTime)}</span>
         </div>
 
         <div className="flex items-center justify-between gap-2 mt-0.5">
           <div className="flex items-center gap-1 min-w-0">
             {lastMessageSentByMe && unreadCount === 0 && (
               <span className="flex-shrink-0 flex">
-                <Check className="w-3 h-3 text-[#B0A090] -mr-1.5" />
-                <Check className="w-3 h-3 text-[#B0A090]" />
+                <Check className="w-3 h-3 text-[#9CA3AF] -mr-1.5" />
+                <Check className="w-3 h-3 text-[#9CA3AF]" />
               </span>
             )}
-            <p className="text-xs text-[#9A8474] truncate">{lastMessage}</p>
+            <p className="text-xs text-[#6B7280] truncate">{lastMessage}</p>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
-            {isPinned && !isSelectMode && <Pin className="w-3 h-3 text-[#9B7653] fill-[#9B7653]" />}
+            {isPinned && !isSelectMode && <Pin className="w-3 h-3 text-[#3B82F6] fill-[#3B82F6]" />}
             {!isSelectMode && <Badge count={unreadCount} />}
           </div>
         </div>

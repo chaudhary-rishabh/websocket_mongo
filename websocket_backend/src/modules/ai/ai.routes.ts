@@ -6,128 +6,105 @@ import type { AuthRequest } from '../../shared/types/index.js'
 import { Conversation } from '../conversations/conversation.model.js'
 import { Message } from '../messages/message.model.js'
 import { User } from '../users/user.model.js'
+import { AiSession } from './ai.session.model.js'
+import { AiMessage } from './ai.message.model.js'
 
 const router = Router()
-
 router.use(authenticate())
 
+// ─── DB helpers ───────────────────────────────────────────────────────────────
+
+/** Create a brand-new AI session for a user. */
+async function createSession(userId: string) {
+  return AiSession.create({ userId, messageCount: 0, lastActivityAt: new Date() })
+}
+
+/** Find a session that belongs to a user; returns null if not found / wrong owner. */
+async function findSession(sessionId: string, userId: string) {
+  return AiSession.findOne({ _id: sessionId, userId })
+}
+
 /**
- * POST /api/v1/ai/chat
- * Body: { messages: { role: 'user' | 'assistant'; content: string }[] }
- * Response: SSE stream  — data: { content: string }  |  data: [DONE]
+ * Persist one message turn.
+ * Also auto-sets the session title from the first user message if not yet set.
  */
-router.post('/chat', async (req: Request, res: Response): Promise<void> => {
-  if (!env.DEEPSEEK_API_KEY) {
-    res.status(503).json({
-      success: false,
-      error: { code: 'AI_UNAVAILABLE', message: 'AI service is not configured' },
-    })
-    return
+async function persist(
+  sessionId: string,
+  userId: string,
+  role: 'user' | 'assistant',
+  content: string,
+  type: 'chat' | 'analysis',
+  metadata?: { model?: string; analyzedUserId?: string; analyzedUserName?: string },
+) {
+  await AiMessage.create({ sessionId, userId, role, content, type, ...(metadata !== undefined && { metadata }) })
+
+  // Auto-title from first user message
+  if (role === 'user') {
+    await AiSession.updateOne(
+      { _id: sessionId, title: { $exists: false } },
+      { $set: { title: content.slice(0, 75).trim() } },
+    )
   }
 
-  const { messages } = req.body as { messages: { role: string; content: string }[] }
+  await AiSession.findByIdAndUpdate(sessionId, {
+    $inc: { messageCount: 1 },
+    lastActivityAt: new Date(),
+  })
+}
 
-  if (!Array.isArray(messages) || messages.length === 0) {
-    res.status(400).json({
-      success: false,
-      error: { code: 'INVALID_REQUEST', message: 'messages array is required' },
-    })
-    return
-  }
+// ─── SSE helpers ──────────────────────────────────────────────────────────────
 
-  // ── SSE headers ──────────────────────────────────────────────────────────
-  res.setHeader('Content-Type', 'text/event-stream')
-  res.setHeader('Cache-Control', 'no-cache')
-  res.setHeader('Connection', 'keep-alive')
-  res.setHeader('X-Accel-Buffering', 'no') // disable nginx proxy buffering
-  res.flushHeaders()
+async function handleUpstreamError(upstream: globalThis.Response, res: Response, tag: string): Promise<void> {
+  const body = await upstream.text().catch(() => '<unreadable>')
+  logger.error({ status: upstream.status, body }, `DeepSeek error [${tag}]`)
+  res.write(`data: ${JSON.stringify({ error: `AI service error (${upstream.status}): ${body.slice(0, 200)}` })}\n\n`)
+  res.end()
+}
 
-  // Track client disconnect so we can abort the upstream read
-  let clientGone = false
-  req.on('close', () => { clientGone = true })
+async function pipeStream(
+  upstream: Response | globalThis.Response,
+  res: Response,
+  onDone: (accumulated: string) => Promise<void>,
+): Promise<void> {
+  const fetchResponse = upstream as globalThis.Response
+  if (!fetchResponse.body) throw new Error('No upstream body')
 
-  const systemPrompt = {
-    role: 'system',
-    content:
-      'You are a helpful, friendly, and concise AI assistant embedded in a chat application. ' +
-      'Use markdown formatting where appropriate (code blocks, bullet points, bold). ' +
-      'Keep responses clear and to the point.',
-  }
+  const reader  = fetchResponse.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer      = ''
+  let accumulated = ''
+  let clientGone  = false
 
-  try {
-    const upstream = await fetch('https://api.deepseek.com/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${env.DEEPSEEK_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'deepseek-chat',
-        messages: [systemPrompt, ...messages],
-        stream: true,
-        max_tokens: 2048,
-        temperature: 0.7,
-      }),
-    })
+  ;(res as unknown as { req: Request }).req.once('close', () => { clientGone = true })
 
-    if (!upstream.ok || !upstream.body) {
-      const errText = await upstream.text().catch(() => 'unknown')
-      logger.warn({ status: upstream.status, errText }, 'DeepSeek upstream error')
-      res.write(`data: ${JSON.stringify({ error: 'AI service returned an error' })}\n\n`)
-      res.end()
-      return
-    }
+  while (!clientGone) {
+    const { done, value } = await reader.read()
+    if (done) break
 
-    const reader = upstream.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
 
-    while (!clientGone) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      buffer += decoder.decode(value, { stream: true })
-
-      // Process all complete SSE lines in the buffer
-      const lines = buffer.split('\n')
-      // Keep the last (potentially incomplete) line in the buffer
-      buffer = lines.pop() ?? ''
-
-      for (const line of lines) {
-        const trimmed = line.trim()
-        if (!trimmed.startsWith('data:')) continue
-
-        const payload = trimmed.slice(5).trim()
-
-        if (payload === '[DONE]') {
-          res.write('data: [DONE]\n\n')
-          continue
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed.startsWith('data:')) continue
+      const payload = trimmed.slice(5).trim()
+      if (payload === '[DONE]') { res.write('data: [DONE]\n\n'); continue }
+      try {
+        const json = JSON.parse(payload) as { choices?: { delta?: { content?: string } }[] }
+        const content = json.choices?.[0]?.delta?.content
+        if (content) {
+          accumulated += content
+          res.write(`data: ${JSON.stringify({ content })}\n\n`)
         }
-
-        try {
-          const json = JSON.parse(payload) as {
-            choices?: { delta?: { content?: string } }[]
-          }
-          const content = json.choices?.[0]?.delta?.content
-          if (content) {
-            res.write(`data: ${JSON.stringify({ content })}\n\n`)
-          }
-        } catch {
-          // skip malformed chunks — normal at stream boundaries
-        }
-      }
-    }
-  } catch (err) {
-    logger.error({ err }, 'AI stream error')
-    if (!res.writableEnded) {
-      res.write(`data: ${JSON.stringify({ error: 'Stream failed. Please try again.' })}\n\n`)
+      } catch {/* skip malformed */}
     }
   }
 
-  if (!res.writableEnded) res.end()
-})
+  if (accumulated.trim()) await onDone(accumulated)
+}
 
-// ─── Static analysis system prompt ────────────────────────────────────────────
+// ─── Analysis system prompt ───────────────────────────────────────────────────
 const ANALYSIS_SYSTEM_PROMPT = `You are an expert psychologist, emotional intelligence specialist, and behavioural analyst embedded inside a private chat application.
 
 You will be given a chronological sequence of real chat messages involving a specific person. Your job is to produce a warm, empathetic, and insightful analysis of that person based ONLY on what is written in those messages.
@@ -159,14 +136,199 @@ Rules you must follow:
 - Write in clear, human language — avoid clinical jargon
 - Keep the total response focused and readable`
 
+// ─── GET /api/v1/ai/sessions ──────────────────────────────────────────────────
+/** List all AI sessions for the authenticated user, newest first. */
+router.get('/sessions', async (req: Request, res: Response): Promise<void> => {
+  const { sub } = (req as AuthRequest).user
+  const sessions = await AiSession.find({ userId: sub })
+    .sort({ lastActivityAt: -1 })
+    .lean()
+  res.json({ success: true, data: { sessions } })
+})
+
+// ─── POST /api/v1/ai/sessions ────────────────────────────────────────────────
+/** Create a new AI session (called by "New Chat" button). */
+router.post('/sessions', async (req: Request, res: Response): Promise<void> => {
+  const { sub } = (req as AuthRequest).user
+  try {
+    const session = await createSession(sub)
+    res.status(201).json({ success: true, data: { session } })
+  } catch (err) {
+    logger.error({ err }, 'Failed to create AI session')
+    res.status(500).json({ success: false, error: { code: 'CREATE_FAILED', message: 'Could not create session' } })
+  }
+})
+
+// ─── DELETE /api/v1/ai/sessions ───────────────────────────────────────────────
+/** Delete ALL sessions and messages for the authenticated user (Clear All). */
+router.delete('/sessions', async (req: Request, res: Response): Promise<void> => {
+  const { sub } = (req as AuthRequest).user
+  const sessions = await AiSession.find({ userId: sub }).select('_id').lean()
+  const ids = sessions.map((s) => s._id)
+  await AiMessage.deleteMany({ sessionId: { $in: ids } })
+  await AiSession.deleteMany({ userId: sub })
+  res.json({ success: true, data: {} })
+})
+
+// ─── DELETE /api/v1/ai/sessions/:sessionId ────────────────────────────────────
+/** Delete one session and all its messages. */
+router.delete('/sessions/:sessionId', async (req: Request, res: Response): Promise<void> => {
+  const { sub } = (req as AuthRequest).user
+  const { sessionId } = req.params as { sessionId: string }
+
+  const session = await findSession(sessionId, sub)
+  if (!session) {
+    res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Session not found' } })
+    return
+  }
+
+  await AiMessage.deleteMany({ sessionId: session._id })
+  await AiSession.findByIdAndDelete(sessionId)
+  res.json({ success: true, data: {} })
+})
+
+// ─── GET /api/v1/ai/messages ──────────────────────────────────────────────────
 /**
- * POST /api/v1/ai/analyze-user
- * Body: { userId?: string }  — omit / "me" for self-analysis, or pass a real MongoDB userId
- * Response: SSE stream — data: { content: string }  |  data: [DONE]
- *
- * Fetches the full chronological message history of the target user in all
- * conversations shared with the requester, then streams an LLM personality /
- * emotional analysis back via SSE.
+ * Returns messages for a specific session (or most-recent session if no sessionId).
+ * Supports cursor-based pagination via ?before=<messageId>.
+ */
+router.get('/messages', async (req: Request, res: Response): Promise<void> => {
+  const { sub } = (req as AuthRequest).user
+  const limit     = Math.min(Number(req.query['limit'] ?? 100), 200)
+  const before    = req.query['before'] as string | undefined
+  const sessionId = req.query['sessionId'] as string | undefined
+
+  const sessionDoc = sessionId
+    ? await AiSession.findOne({ _id: sessionId, userId: sub }).lean()
+    : await AiSession.findOne({ userId: sub }).sort({ lastActivityAt: -1 }).lean()
+
+  if (!sessionDoc) {
+    res.json({ success: true, data: { messages: [], hasMore: false } })
+    return
+  }
+
+  const filter: Record<string, unknown> = { sessionId: sessionDoc._id }
+  if (before) filter['_id'] = { $lt: before }
+
+  const messages = await AiMessage.find(filter)
+    .sort({ createdAt: 1 })
+    .limit(limit + 1)
+    .lean()
+
+  const hasMore = messages.length > limit
+  if (hasMore) messages.pop()
+
+  res.json({ success: true, data: { messages, hasMore } })
+})
+
+// ─── POST /api/v1/ai/chat ─────────────────────────────────────────────────────
+/**
+ * Body: { sessionId: string; messages: { role: 'user'|'assistant'; content: string }[] }
+ * Persists the new user message and streams the assistant reply via SSE.
+ */
+router.post('/chat', async (req: Request, res: Response): Promise<void> => {
+  if (!env.DEEPSEEK_API_KEY) {
+    res.status(503).json({ success: false, error: { code: 'AI_UNAVAILABLE', message: 'AI service is not configured' } })
+    return
+  }
+
+  const { sub } = (req as AuthRequest).user
+  const { messages, sessionId: providedSessionId } = req.body as {
+    messages: { role: string; content: string }[]
+    sessionId?: string
+  }
+
+  if (!Array.isArray(messages) || messages.length === 0) {
+    res.status(400).json({ success: false, error: { code: 'INVALID_REQUEST', message: 'messages array is required' } })
+    return
+  }
+
+  const newUserMessage = messages[messages.length - 1]
+  if (!newUserMessage || newUserMessage.role !== 'user') {
+    res.status(400).json({ success: false, error: { code: 'INVALID_REQUEST', message: 'Last message must be a user message' } })
+    return
+  }
+
+  // Resolve or create session
+  let session: Awaited<ReturnType<typeof createSession>>
+  if (providedSessionId) {
+    const found = await findSession(providedSessionId, sub)
+    if (!found) {
+      res.status(400).json({ success: false, error: { code: 'INVALID_SESSION', message: 'Session not found' } })
+      return
+    }
+    session = found
+  } else {
+    session = await createSession(sub)
+  }
+
+  await persist(session._id.toString(), sub, 'user', newUserMessage.content, 'chat')
+
+  // Fetch user profile to personalise the system prompt
+  const currentUser = await User.findById(sub).select('displayName username bio createdAt').lean().catch(() => null)
+
+  // SSE setup
+  res.setHeader('Content-Type', 'text/event-stream')
+  res.setHeader('Cache-Control', 'no-cache')
+  res.setHeader('Connection', 'keep-alive')
+  res.setHeader('X-Accel-Buffering', 'no')
+  res.flushHeaders()
+
+  const userCtx = currentUser
+    ? [
+        ``,
+        `The person you are talking to:`,
+        `- Name: ${currentUser.displayName}`,
+        `- Username: @${currentUser.username}`,
+        ...(currentUser.bio ? [`- Bio: ${currentUser.bio}`] : []),
+        `- Member since: ${new Date(currentUser.createdAt).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}`,
+        ``,
+        `Address them by their first name when it feels natural. Be warm and personal.`,
+      ].join('\n')
+    : ''
+
+  const systemPrompt = {
+    role: 'system',
+    content:
+      'You are a helpful, friendly, and concise AI assistant embedded in a private chat application. ' +
+      'Use markdown formatting where appropriate (code blocks, bullet points, bold). ' +
+      'Keep responses clear and to the point.' +
+      userCtx,
+  }
+
+  try {
+    const upstream = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.DEEPSEEK_API_KEY!}` },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [systemPrompt, ...messages],
+        stream: true,
+        max_tokens: 2048,
+        temperature: 0.7,
+      }),
+    })
+
+    if (!upstream.ok || !upstream.body) {
+      await handleUpstreamError(upstream, res, 'chat')
+      return
+    }
+
+    await pipeStream(upstream as unknown as Response, res, async (accumulated) => {
+      await persist(session._id.toString(), sub, 'assistant', accumulated, 'chat', { model: 'deepseek-chat' })
+    })
+  } catch (err) {
+    logger.error({ err }, 'AI chat stream error')
+    if (!res.writableEnded) res.write(`data: ${JSON.stringify({ error: 'Stream failed. Please try again.' })}\n\n`)
+  }
+
+  if (!res.writableEnded) res.end()
+})
+
+// ─── POST /api/v1/ai/analyze-user ────────────────────────────────────────────
+/**
+ * Body: { sessionId: string; userId?: string; userLabel?: string }
+ * Fetches the target user's chat history, runs personality analysis, persists both turns.
  */
 router.post('/analyze-user', async (req: Request, res: Response): Promise<void> => {
   if (!env.DEEPSEEK_API_KEY) {
@@ -175,12 +337,16 @@ router.post('/analyze-user', async (req: Request, res: Response): Promise<void> 
   }
 
   const { sub } = (req as AuthRequest).user
-  const { userId } = req.body as { userId?: string }
+  const { userId, userLabel, sessionId: providedSessionId } = req.body as {
+    userId?: string
+    userLabel?: string
+    sessionId?: string
+  }
 
-  const isSelf = !userId || userId === 'me' || userId === sub
-  const targetId = isSelf ? sub : userId
+  const isSelf   = !userId || userId === 'me' || userId === sub
+  const targetId = isSelf ? sub : userId!
 
-  // ── Resolve target user's display name ──────────────────────────────────
+  // Resolve target user
   const targetUser = await User.findById(targetId).lean().catch(() => null)
   if (!targetUser) {
     res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'User not found' } })
@@ -188,8 +354,7 @@ router.post('/analyze-user', async (req: Request, res: Response): Promise<void> 
   }
   const targetName = targetUser.displayName
 
-  // ── Find all conversations that include the target ──────────────────────
-  // For self: all own conversations. For other: only shared conversations.
+  // Find shared conversations
   const convFilter = isSelf
     ? { members: targetId }
     : { members: { $all: [sub, targetId] } }
@@ -199,37 +364,29 @@ router.post('/analyze-user', async (req: Request, res: Response): Promise<void> 
     .lean()
 
   if (conversations.length === 0) {
-    res.status(400).json({
-      success: false,
-      error: { code: 'NO_DATA', message: 'No shared conversations found to analyse' },
-    })
+    res.status(400).json({ success: false, error: { code: 'NO_DATA', message: 'No shared conversations found to analyse' } })
     return
   }
 
-  // ── Fetch messages from those conversations (all senders for context) ───
-  const convIds = conversations.map((c) => c._id)
-
+  // Fetch chronological message history
+  const convIds    = conversations.map((c) => c._id)
   const rawMessages = await Message.find({
     conversationId: { $in: convIds },
-    type: 'text',                   // only text messages are meaningful for analysis
+    type: 'text',
     deletedFor: { $nin: [targetId] },
   })
     .populate('senderId', 'displayName')
     .sort({ createdAt: 1 })
-    .limit(500)                     // reasonable LLM context cap
+    .limit(500)
     .lean()
 
   if (rawMessages.length === 0) {
-    res.status(400).json({
-      success: false,
-      error: { code: 'NO_DATA', message: 'No text messages found to analyse' },
-    })
+    res.status(400).json({ success: false, error: { code: 'NO_DATA', message: 'No text messages found to analyse' } })
     return
   }
 
-  // ── Format messages grouped by conversation ─────────────────────────────
+  // Format messages grouped by conversation
   const convMap = new Map(conversations.map((c) => [c._id.toString(), c]))
-
   const grouped = new Map<string, typeof rawMessages>()
   for (const msg of rawMessages) {
     const key = msg.conversationId.toString()
@@ -239,47 +396,52 @@ router.post('/analyze-user', async (req: Request, res: Response): Promise<void> 
 
   const sections: string[] = []
   for (const [convId, msgs] of grouped) {
-    const conv = convMap.get(convId)
-    const convLabel = conv?.name
-      ? `Group: ${conv.name}`
-      : 'Direct Message'
-
-    const lines = msgs.map((m) => {
-      const sender =
-        typeof m.senderId === 'object' && 'displayName' in m.senderId
-          ? (m.senderId as { displayName: string }).displayName
-          : 'Unknown'
+    const conv      = convMap.get(convId)
+    const convLabel = conv?.name ? `Group: ${conv.name}` : 'Direct Message'
+    const lines     = msgs.map((m) => {
+      const sender   = typeof m.senderId === 'object' && 'displayName' in m.senderId
+        ? (m.senderId as { displayName: string }).displayName : 'Unknown'
       const isTarget = m.senderId.toString() === targetId
-      const tag = isTarget ? `[${targetName}]` : `[${sender}]`
-      const date = new Date(m.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+      const tag      = isTarget ? `[${targetName}]` : `[${sender}]`
+      const date     = new Date(m.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
       return `${date} ${tag}: ${m.content}`
     })
-
     sections.push(`=== ${convLabel} ===\n${lines.join('\n')}`)
   }
 
   const messageBlock = sections.join('\n\n')
-  const userPrompt = isSelf
+  const userPrompt   = isSelf
     ? `Please analyse ME (${targetName}) based on my chat history below.\n\n${messageBlock}`
     : `Please analyse ${targetName} based on their chat history below.\n\n${messageBlock}`
 
-  // ── SSE setup ───────────────────────────────────────────────────────────
+  // Resolve or create session
+  const requestLabel = userLabel ?? (isSelf ? `Analyse my own behaviour & emotions` : `Analyse ${targetName}'s messages`)
+
+  let session: Awaited<ReturnType<typeof createSession>>
+  if (providedSessionId) {
+    const found = await findSession(providedSessionId, sub)
+    if (!found) {
+      res.status(400).json({ success: false, error: { code: 'INVALID_SESSION', message: 'Session not found' } })
+      return
+    }
+    session = found
+  } else {
+    session = await createSession(sub)
+  }
+
+  await persist(session._id.toString(), sub, 'user', requestLabel, 'analysis')
+
+  // SSE setup
   res.setHeader('Content-Type', 'text/event-stream')
   res.setHeader('Cache-Control', 'no-cache')
   res.setHeader('Connection', 'keep-alive')
   res.setHeader('X-Accel-Buffering', 'no')
   res.flushHeaders()
 
-  let clientGone = false
-  req.on('close', () => { clientGone = true })
-
   try {
     const upstream = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${env.DEEPSEEK_API_KEY}`,
-      },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.DEEPSEEK_API_KEY!}` },
       body: JSON.stringify({
         model: 'deepseek-chat',
         messages: [
@@ -288,40 +450,22 @@ router.post('/analyze-user', async (req: Request, res: Response): Promise<void> 
         ],
         stream: true,
         max_tokens: 2048,
-        temperature: 0.6,   // slightly lower for more consistent analysis
+        temperature: 0.6,
       }),
     })
 
     if (!upstream.ok || !upstream.body) {
-      res.write(`data: ${JSON.stringify({ error: 'AI service returned an error' })}\n\n`)
-      res.end()
+      await handleUpstreamError(upstream, res, 'analyze-user')
       return
     }
 
-    const reader  = upstream.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-
-    while (!clientGone) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''
-
-      for (const line of lines) {
-        const trimmed = line.trim()
-        if (!trimmed.startsWith('data:')) continue
-        const payload = trimmed.slice(5).trim()
-        if (payload === '[DONE]') { res.write('data: [DONE]\n\n'); continue }
-        try {
-          const json = JSON.parse(payload) as { choices?: { delta?: { content?: string } }[] }
-          const content = json.choices?.[0]?.delta?.content
-          if (content) res.write(`data: ${JSON.stringify({ content })}\n\n`)
-        } catch {/* skip malformed */}
-      }
-    }
+    await pipeStream(upstream as unknown as Response, res, async (accumulated) => {
+      await persist(session._id.toString(), sub, 'assistant', accumulated, 'analysis', {
+        model:            'deepseek-chat',
+        analyzedUserId:   targetId,
+        analyzedUserName: targetName,
+      })
+    })
   } catch (err) {
     logger.error({ err }, 'AI analyze-user stream error')
     if (!res.writableEnded) res.write(`data: ${JSON.stringify({ error: 'Analysis failed. Please try again.' })}\n\n`)

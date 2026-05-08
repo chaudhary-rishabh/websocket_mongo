@@ -195,18 +195,18 @@ export default function GroupMembersModal({
           className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
         >
           <div
-            className="pointer-events-auto bg-[#F6EEE3] w-full max-w-sm flex flex-col shadow-2xl overflow-hidden border border-[#E0D5C5]"
+            className="pointer-events-auto bg-[#EFF6FF] w-full max-w-sm flex flex-col shadow-2xl overflow-hidden border border-[#BFDBFE]"
             style={{ borderRadius: 25, maxHeight: '80vh' }}
           >
             {/* ── Header ── */}
             <div className="flex items-center justify-between px-5 pt-5 pb-4 flex-shrink-0">
               <div>
                 {view === 'add' ? (
-                  <h2 className="text-base font-bold text-[#2A1F14]">Add Members</h2>
+                  <h2 className="text-base font-bold text-[#1F2937]">Add Members</h2>
                 ) : (
                   <>
-                    <h2 className="text-base font-bold text-[#2A1F14]">{conversation.name}</h2>
-                    <p className="text-xs text-[#9A8474] mt-0.5">
+                    <h2 className="text-base font-bold text-[#1F2937]">{conversation.name}</h2>
+                    <p className="text-xs text-[#6B7280] mt-0.5">
                       {members.length} members · {onlineMembers.length} online
                     </p>
                   </>
@@ -214,7 +214,7 @@ export default function GroupMembersModal({
               </div>
               <button
                 onClick={view === 'add' ? closeAdd : onClose}
-                className="p-2 rounded-full hover:bg-[#EDE4D6] transition-colors text-[#9A8474]"
+                className="p-2 rounded-full hover:bg-[#DBEAFE] transition-colors text-[#6B7280]"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -227,7 +227,7 @@ export default function GroupMembersModal({
                   {isReal && amIAdmin && (
                     <button
                       onClick={() => { setView('add'); setSearchQ('') }}
-                      className="flex-1 flex items-center justify-center gap-2 bg-[#7C5C3E] hover:bg-[#9B7653] text-white text-xs font-semibold py-2.5 rounded-xl transition-colors duration-200"
+                      className="flex-1 flex items-center justify-center gap-2 bg-[#2563EB] hover:bg-[#3B82F6] text-white text-xs font-semibold py-2.5 rounded-xl transition-colors duration-200"
                     >
                       <UserPlus className="w-3.5 h-3.5" />
                       Add Member
@@ -246,7 +246,7 @@ export default function GroupMembersModal({
                     </button>
                   )}
                 </div>
-                <div className="h-px bg-[#E0D5C5] mx-5 flex-shrink-0" />
+                <div className="h-px bg-[#BFDBFE] mx-5 flex-shrink-0" />
               </>
             )}
 
@@ -254,14 +254,14 @@ export default function GroupMembersModal({
             {view === 'add' && (
               <>
                 <div className="px-5 pb-3 flex-shrink-0">
-                  <div className="flex items-center gap-2 bg-white/60 border border-[#E0D5C5] rounded-2xl px-3 py-2">
-                    <Search className="w-4 h-4 text-[#9A8474] flex-shrink-0" />
+                  <div className="flex items-center gap-2 bg-white/60 border border-[#BFDBFE] rounded-2xl px-3 py-2">
+                    <Search className="w-4 h-4 text-[#6B7280] flex-shrink-0" />
                     <input
                       autoFocus
                       value={searchQ}
                       onChange={(e) => setSearchQ(e.target.value)}
                       placeholder="Search by name or username…"
-                      className="flex-1 text-sm bg-transparent outline-none text-[#2A1F14] placeholder-[#B0A090]"
+                      className="flex-1 text-sm bg-transparent outline-none text-[#1F2937] placeholder-[#9CA3AF]"
                     />
                   </div>
                 </div>
@@ -271,7 +271,7 @@ export default function GroupMembersModal({
                     <button
                       onClick={handleAddMembers}
                       disabled={addLoading}
-                      className="w-full flex items-center justify-center gap-2 bg-[#7C5C3E] hover:bg-[#9B7653] disabled:opacity-50 text-white text-xs font-semibold py-2.5 rounded-xl transition-colors"
+                      className="w-full flex items-center justify-center gap-2 bg-[#2563EB] hover:bg-[#3B82F6] disabled:opacity-50 text-white text-xs font-semibold py-2.5 rounded-xl transition-colors"
                     >
                       {addLoading
                         ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -281,7 +281,7 @@ export default function GroupMembersModal({
                   </div>
                 )}
 
-                <div className="h-px bg-[#E0D5C5] mx-5 flex-shrink-0" />
+                <div className="h-px bg-[#BFDBFE] mx-5 flex-shrink-0" />
               </>
             )}
 
@@ -291,7 +291,7 @@ export default function GroupMembersModal({
               {/* Add-member search results */}
               {view === 'add' && (
                 searchResults.length === 0 ? (
-                  <p className="text-center text-xs text-[#B0A090] py-8">
+                  <p className="text-center text-xs text-[#9CA3AF] py-8">
                     {searchQ ? 'No users found' : 'Start typing to search users'}
                   </p>
                 ) : (
@@ -299,13 +299,13 @@ export default function GroupMembersModal({
                     <div
                       key={u._id}
                       onClick={() => toggleSelect(u._id)}
-                      className="flex items-center gap-3 px-5 py-2.5 hover:bg-[#EDE4D6] cursor-pointer transition-colors"
+                      className="flex items-center gap-3 px-5 py-2.5 hover:bg-[#DBEAFE] cursor-pointer transition-colors"
                     >
                       <div className={cn(
                         'w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors',
                         selectedIds.has(u._id)
-                          ? 'bg-[#7C5C3E] border-[#7C5C3E]'
-                          : 'border-[#C4B4A0] bg-white',
+                          ? 'bg-[#2563EB] border-[#2563EB]'
+                          : 'border-[#93C5FD] bg-white',
                       )}>
                         {selectedIds.has(u._id) && <Check className="w-2.5 h-2.5 text-white" />}
                       </div>
@@ -317,8 +317,8 @@ export default function GroupMembersModal({
                         size="md"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-[#2A1F14] truncate">{u.displayName}</p>
-                        <p className="text-xs text-[#9A8474]">@{u.username}</p>
+                        <p className="text-sm font-medium text-[#1F2937] truncate">{u.displayName}</p>
+                        <p className="text-xs text-[#6B7280]">@{u.username}</p>
                       </div>
                     </div>
                   ))
@@ -330,7 +330,7 @@ export default function GroupMembersModal({
                 <>
                   {onlineMembers.length > 0 && (
                     <>
-                      <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9A8474] px-5 pb-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-[#6B7280] px-5 pb-2">
                         Online — {onlineMembers.length}
                       </p>
                       {onlineMembers.map((m) => (
@@ -345,7 +345,7 @@ export default function GroupMembersModal({
                   )}
                   {offlineMembers.length > 0 && (
                     <>
-                      <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9A8474] px-5 pt-3 pb-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-[#6B7280] px-5 pt-3 pb-2">
                         Offline — {offlineMembers.length}
                       </p>
                       {offlineMembers.map((m) => (
@@ -359,7 +359,7 @@ export default function GroupMembersModal({
                     </>
                   )}
                   {members.length === 0 && (
-                    <p className="text-center text-xs text-[#B0A090] py-8">No members to show</p>
+                    <p className="text-center text-xs text-[#9CA3AF] py-8">No members to show</p>
                   )}
                 </>
               )}
@@ -381,12 +381,12 @@ function MemberRow({
   onRemove: () => void
 }) {
   return (
-    <div className="group flex items-center gap-3 px-5 py-2.5 hover:bg-[#EDE4D6] transition-colors">
+    <div className="group flex items-center gap-3 px-5 py-2.5 hover:bg-[#DBEAFE] transition-colors">
       <div className="relative flex-shrink-0">
         <Avatar src={member.avatar} initials={member.initials} name={member.name} id={member.id} size="md" />
         <span className={cn(
-          'absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#F6EEE3]',
-          member.isOnline ? 'bg-[#22C55E]' : 'bg-[#C4B4A0]',
+          'absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#EFF6FF]',
+          member.isOnline ? 'bg-[#22C55E]' : 'bg-[#93C5FD]',
         )} />
       </div>
 
@@ -394,7 +394,7 @@ function MemberRow({
         <div className="flex items-center gap-1.5">
           <p className={cn(
             'text-sm font-medium truncate',
-            member.isMe ? 'text-[#7C5C3E]' : 'text-[#2A1F14]',
+            member.isMe ? 'text-[#2563EB]' : 'text-[#1F2937]',
           )}>
             {member.isMe ? `${member.name} (You)` : member.name}
           </p>
@@ -405,7 +405,7 @@ function MemberRow({
         <p className="text-xs mt-0.5">
           {member.isOnline
             ? <span className="text-emerald-600 font-medium">Online</span>
-            : <span className="text-[#B0A090]">Offline</span>}
+            : <span className="text-[#9CA3AF]">Offline</span>}
         </p>
       </div>
 

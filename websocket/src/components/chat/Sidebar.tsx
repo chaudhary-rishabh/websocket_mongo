@@ -73,20 +73,20 @@ function SidebarContent({
   }
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-b from-[#F6EEE3] to-white rounded-[25px]">
+    <div className="flex flex-col h-full bg-white/70 backdrop-blur-xl border border-white/40 rounded-[25px] shadow-sm">
 
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-5 pt-5 pb-3">
         {isSelectMode ? (
-          <span className="text-sm font-semibold text-[#2A1F14]">
+          <span className="text-sm font-semibold text-gray-900">
             {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select chats'}
           </span>
         ) : (
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-[#7C5C3E] flex items-center justify-center flex-shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-gray-900 flex items-center justify-center flex-shrink-0">
               <MessageSquare className="w-4 h-4 text-white" />
             </div>
-            <span className="text-base font-bold text-[#2A1F14]">ChatApp</span>
+            <span className="text-base font-bold text-gray-900">ChatApp</span>
           </div>
         )}
 
@@ -94,7 +94,7 @@ function SidebarContent({
           {isSelectMode ? (
             <button
               onClick={cancelSelect}
-              className="text-xs font-semibold text-[#7C5C3E] px-2.5 py-1 rounded-xl hover:bg-[#EDE4D6] transition-colors"
+              className="text-xs font-semibold text-gray-600 px-2.5 py-1 rounded-xl hover:bg-gray-100 transition-colors"
             >
               Cancel
             </button>
@@ -102,7 +102,7 @@ function SidebarContent({
             <>
               <button
                 onClick={() => setIsSelectMode(true)}
-                className="p-2 rounded-full hover:bg-[#EDE4D6] transition-colors text-[#9A8474]"
+                className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-500"
                 title="Select chats"
               >
                 <SquarePen className="w-4 h-4" />
@@ -112,7 +112,7 @@ function SidebarContent({
               {showClose && (
                 <button
                   onClick={onClose}
-                  className="p-2 rounded-full hover:bg-[#EDE4D6] transition-colors text-[#9A8474]"
+                  className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-500"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -123,7 +123,7 @@ function SidebarContent({
                 <button
                   onClick={onToggleCollapse}
                   title="Collapse sidebar"
-                  className="hidden md:flex p-2 rounded-full hover:bg-[#EDE4D6] transition-colors text-[#9A8474] hover:text-[#7C5C3E]"
+                  className="hidden md:flex p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-800"
                 >
                   <motion.div
                     key="close"
@@ -145,10 +145,10 @@ function SidebarContent({
         <div className="px-4 pb-3">
           <button
             onClick={() => setSearchOpen(true)}
-            className="w-full flex items-center gap-2 bg-white/60 hover:bg-white/80 transition-colors duration-200 rounded-2xl px-4 py-2.5 border border-[#E0D5C5]"
+            className="w-full flex items-center gap-2 bg-gray-50 hover:bg-gray-100 transition-colors duration-200 rounded-2xl px-4 py-2.5 border border-gray-200"
           >
-            <Search className="w-4 h-4 text-[#9A8474] flex-shrink-0" />
-            <span className="text-sm text-[#B0A090]">Search conversations…</span>
+            <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            <span className="text-sm text-gray-400">Search conversations…</span>
           </button>
         </div>
       )}
@@ -156,7 +156,7 @@ function SidebarContent({
       {/* ── People / Groups toggle with smooth sliding indicator ── */}
       {!isSelectMode && (
         <div className="px-4 pb-3">
-          <div className="relative flex items-center bg-[#EDE4D6] rounded-2xl p-1 gap-1">
+          <div className="relative flex items-center bg-gray-100 rounded-2xl p-1 gap-1">
             {/* Sliding background pill */}
             <motion.div
               className="absolute top-1 bottom-1 rounded-xl bg-white shadow-sm"
@@ -168,8 +168,8 @@ function SidebarContent({
               <button
                 key={t}
                 onClick={() => setActiveTab(t)}
-                className="relative flex-1 text-xs font-semibold py-1.5 rounded-xl z-10 transition-colors duration-200"
-                style={{ color: activeTab === t ? '#7C5C3E' : '#9A8474' }}
+                className="relative flex-1 text-xs font-semibold py-[10px] rounded-xl z-10 transition-colors duration-200"
+                style={{ color: activeTab === t ? '#111827' : '#9CA3AF' }}
               >
                 {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
@@ -197,10 +197,10 @@ function SidebarContent({
         <div className="flex-shrink-0 px-3 pb-2">
           <Link
             href="/chat/ai"
-            className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl bg-[#1A1A1A] hover:bg-[#2D2D2D] transition-colors duration-200"
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl bg-gray-900 hover:bg-gray-800 transition-all duration-200 border-2 border-blue-400/50 shadow-[0_0_14px_rgba(96,165,250,0.35)] hover:shadow-[0_0_20px_rgba(96,165,250,0.55)] hover:border-blue-400/70"
           >
             <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center flex-shrink-0">
-              <Bot className="w-4 h-4 text-[#1A1A1A]" />
+              <Bot className="w-4 h-4 text-gray-900" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-white">AI Assistant</p>
@@ -220,15 +220,15 @@ function SidebarContent({
             animate={{ y: 0,  opacity: 1 }}
             exit={{    y: 60, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 36 }}
-            className="flex-shrink-0 border-t border-[#E0D5C5] px-4 py-3 bg-[#F6EEE3] rounded-b-[25px] flex items-center gap-3"
+            className="flex-shrink-0 border-t border-gray-200 px-4 py-3 bg-white rounded-b-[25px] flex items-center gap-3"
           >
-            <span className="flex-1 text-sm text-[#9A8474]">
+            <span className="flex-1 text-sm text-gray-500">
               {selectedIds.size === 0 ? 'Tap to select' : `${selectedIds.size} chat${selectedIds.size > 1 ? 's' : ''} selected`}
             </span>
             <button
               onClick={hideSelected}
               disabled={selectedIds.size === 0}
-              className="flex items-center gap-1.5 bg-[#7C5C3E] hover:bg-[#9B7653] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold px-3 py-2 rounded-xl transition-colors duration-200"
+              className="flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold px-3 py-2 rounded-xl transition-colors duration-200"
             >
               <Eye className="w-3.5 h-3.5" />
               Hide
@@ -249,17 +249,17 @@ function SidebarContent({
             animate={{ y: 0,  opacity: 1 }}
             exit={{    y: 30, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 36 }}
-            className="flex-shrink-0 border-t border-[#E0D5C5] px-4 py-3 flex items-center justify-between rounded-b-[25px]"
+            className="flex-shrink-0 border-t border-gray-200 px-4 py-3 flex items-center justify-between rounded-b-[25px]"
           >
             <Link
               href="/profile"
-              className="group flex items-center gap-2 p-2 rounded-2xl hover:bg-[#EDE4D6] transition-all duration-200"
+              className="group flex items-center gap-2 p-2 rounded-2xl hover:bg-gray-100 transition-all duration-200"
               title="Settings"
             >
-              <div className="w-8 h-8 rounded-xl bg-[#EDE4D6] group-hover:bg-[#E4D5C2] flex items-center justify-center transition-colors duration-200">
-                <Settings className="w-4 h-4 text-[#7C5C3E]" />
+              <div className="w-8 h-8 rounded-xl bg-gray-100 group-hover:bg-gray-200 flex items-center justify-center transition-colors duration-200">
+                <Settings className="w-4 h-4 text-gray-600" />
               </div>
-              <span className="text-xs font-medium text-[#9A8474] group-hover:text-[#7C5C3E] transition-colors duration-200">
+              <span className="text-xs font-medium text-gray-500 group-hover:text-gray-800 transition-colors duration-200">
                 Settings
               </span>
             </Link>
@@ -269,10 +269,10 @@ function SidebarContent({
               className="group flex items-center gap-2 p-2 rounded-2xl hover:bg-red-50 transition-all duration-200"
               title="Log out"
             >
-              <div className="w-8 h-8 rounded-xl bg-[#EDE4D6] group-hover:bg-red-100 flex items-center justify-center transition-colors duration-200">
-                <LogOut className="w-4 h-4 text-[#9A8474] group-hover:text-red-500 transition-colors duration-200" />
+              <div className="w-8 h-8 rounded-xl bg-gray-100 group-hover:bg-red-100 flex items-center justify-center transition-colors duration-200">
+                <LogOut className="w-4 h-4 text-gray-500 group-hover:text-red-500 transition-colors duration-200" />
               </div>
-              <span className="text-xs font-medium text-[#9A8474] group-hover:text-red-500 transition-colors duration-200">
+              <span className="text-xs font-medium text-gray-500 group-hover:text-red-500 transition-colors duration-200">
                 Log out
               </span>
             </button>
@@ -316,7 +316,7 @@ export default function Sidebar() {
             transition={{ type: 'spring', stiffness: 420, damping: 34 }}
             onClick={() => setDesktopCollapsed(false)}
             title="Open sidebar"
-            className="hidden md:flex flex-shrink-0 self-start mt-4 p-2.5 rounded-2xl bg-[#F6EEE3] hover:bg-[#EDE4D6] transition-colors text-[#7C5C3E] shadow-sm border border-[#E0D5C5]"
+            className="hidden md:flex flex-shrink-0 self-start mt-4 p-2.5 rounded-2xl bg-white/90 backdrop-blur-sm hover:bg-gray-100 transition-colors text-gray-600 shadow-md border border-gray-200 z-20 relative"
           >
             <PanelLeftOpen className="w-4 h-4" />
           </motion.button>

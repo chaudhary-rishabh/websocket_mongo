@@ -96,15 +96,15 @@ export default function SignupPage() {
 
         {/* Brand */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-[#7C5C3E] flex items-center justify-center shadow-md mb-4">
+          <div className="w-14 h-14 rounded-2xl bg-[#2563EB] flex items-center justify-center shadow-md mb-4">
             <MessageSquare className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-[#2A1F14]">Create account</h1>
-          <p className="text-sm text-[#9A8474] mt-1">Join the conversation today</p>
+          <h1 className="text-2xl font-bold text-[#1F2937]">Create account</h1>
+          <p className="text-sm text-[#6B7280] mt-1">Join the conversation today</p>
         </div>
 
         {/* Card */}
-        <div className="bg-[#F6EEE3] rounded-[25px] border border-[#E0D5C5] p-6 shadow-sm">
+        <div className="bg-[#EFF6FF] rounded-[25px] border border-[#BFDBFE] p-6 shadow-sm">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
 
             {/* Error */}
@@ -129,7 +129,7 @@ export default function SignupPage() {
             {/* Username */}
             <Field label="Username">
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#C4B4A0] text-sm font-medium">@</span>
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#93C5FD] text-sm font-medium">@</span>
                 <input
                   type="text"
                   value={form.username}
@@ -167,7 +167,7 @@ export default function SignupPage() {
                 <button
                   type="button"
                   onClick={() => setShowPw((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#C4B4A0] hover:text-[#9B7653] transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#93C5FD] hover:text-[#3B82F6] transition-colors"
                 >
                   {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -175,7 +175,7 @@ export default function SignupPage() {
               {showPwHints && (
                 <div className="mt-2 flex flex-col gap-1">
                   {PW_RULES.map((rule, i) => (
-                    <div key={i} className={`flex items-center gap-1.5 text-xs ${pwRulesMet[i] ? 'text-emerald-600' : 'text-[#B0A090]'}`}>
+                    <div key={i} className={`flex items-center gap-1.5 text-xs ${pwRulesMet[i] ? 'text-emerald-600' : 'text-[#9CA3AF]'}`}>
                       {pwRulesMet[i]
                         ? <Check className="w-3 h-3" />
                         : <X className="w-3 h-3" />}
@@ -206,7 +206,7 @@ export default function SignupPage() {
                 <button
                   type="button"
                   onClick={() => setShowCpw((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#C4B4A0] hover:text-[#9B7653] transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#93C5FD] hover:text-[#3B82F6] transition-colors"
                 >
                   {showCpw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -220,8 +220,8 @@ export default function SignupPage() {
               className={cn(
                 'w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white transition-all duration-200 mt-1',
                 loading
-                  ? 'bg-[#C4A882] cursor-not-allowed'
-                  : 'bg-[#7C5C3E] hover:bg-[#9B7653] active:scale-[0.98]',
+                  ? 'bg-[#93C5FD] cursor-not-allowed'
+                  : 'bg-[#2563EB] hover:bg-[#3B82F6] active:scale-[0.98]',
               )}
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -231,9 +231,9 @@ export default function SignupPage() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-sm text-[#9A8474] mt-5">
+        <p className="text-center text-sm text-[#6B7280] mt-5">
           Already have an account?{' '}
-          <Link href="/login" className="font-semibold text-[#7C5C3E] hover:text-[#9B7653] transition-colors">
+          <Link href="/login" className="font-semibold text-[#2563EB] hover:text-[#3B82F6] transition-colors">
             Sign in
           </Link>
         </p>
@@ -244,12 +244,12 @@ export default function SignupPage() {
 
 /* ─── Helpers ──────────────────────────────────────────────────────────── */
 const inputCls =
-  'w-full bg-white border border-[#E0D5C5] rounded-xl px-4 py-3 text-sm text-[#2A1F14] placeholder:text-[#C4B4A0] outline-none focus:border-[#9B7653] focus:ring-2 focus:ring-[#9B7653]/20 transition-all duration-200'
+  'w-full bg-white border border-[#BFDBFE] rounded-xl px-4 py-3 text-sm text-[#1F2937] placeholder:text-[#93C5FD] outline-none focus:border-[#3B82F6] focus:ring-2 focus:ring-[#3B82F6]/20 transition-all duration-200'
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-semibold text-[#7C5C3E] uppercase tracking-wide">
+      <label className="text-xs font-semibold text-[#2563EB] uppercase tracking-wide">
         {label}
       </label>
       {children}

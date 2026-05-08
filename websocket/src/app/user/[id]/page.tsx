@@ -21,7 +21,7 @@ export default async function UserProfileRoute({ params }: PageProps) {
   const user = getUserById(id)
   if (!user || id === 'me') {
     return (
-      <div className="min-h-screen flex items-center justify-center text-[#9A8474] text-sm">
+      <div className="min-h-screen flex items-center justify-center text-[#6B7280] text-sm">
         User not found
       </div>
     )

@@ -43,15 +43,15 @@ export default function LoginPage() {
 
         {/* Brand */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-[#7C5C3E] flex items-center justify-center shadow-md mb-4">
+          <div className="w-14 h-14 rounded-2xl bg-[#2563EB] flex items-center justify-center shadow-md mb-4">
             <MessageSquare className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-[#2A1F14]">Welcome back</h1>
-          <p className="text-sm text-[#9A8474] mt-1">Sign in to continue chatting</p>
+          <h1 className="text-2xl font-bold text-[#1F2937]">Welcome back</h1>
+          <p className="text-sm text-[#6B7280] mt-1">Sign in to continue chatting</p>
         </div>
 
         {/* Card */}
-        <div className="bg-[#F6EEE3] rounded-[25px] border border-[#E0D5C5] p-6 shadow-sm">
+        <div className="bg-[#EFF6FF] rounded-[25px] border border-[#BFDBFE] p-6 shadow-sm">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
 
             {/* Error */}
@@ -63,7 +63,7 @@ export default function LoginPage() {
 
             {/* Email */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-[#7C5C3E] uppercase tracking-wide">
+              <label className="text-xs font-semibold text-[#2563EB] uppercase tracking-wide">
                 Email
               </label>
               <input
@@ -72,13 +72,13 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 autoComplete="email"
-                className="w-full bg-white border border-[#E0D5C5] rounded-xl px-4 py-3 text-sm text-[#2A1F14] placeholder:text-[#C4B4A0] outline-none focus:border-[#9B7653] focus:ring-2 focus:ring-[#9B7653]/20 transition-all duration-200"
+                className="w-full bg-white border border-[#BFDBFE] rounded-xl px-4 py-3 text-sm text-[#1F2937] placeholder:text-[#93C5FD] outline-none focus:border-[#3B82F6] focus:ring-2 focus:ring-[#3B82F6]/20 transition-all duration-200"
               />
             </div>
 
             {/* Password */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-[#7C5C3E] uppercase tracking-wide">
+              <label className="text-xs font-semibold text-[#2563EB] uppercase tracking-wide">
                 Password
               </label>
               <div className="relative">
@@ -88,12 +88,12 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   autoComplete="current-password"
-                  className="w-full bg-white border border-[#E0D5C5] rounded-xl px-4 py-3 pr-11 text-sm text-[#2A1F14] placeholder:text-[#C4B4A0] outline-none focus:border-[#9B7653] focus:ring-2 focus:ring-[#9B7653]/20 transition-all duration-200"
+                  className="w-full bg-white border border-[#BFDBFE] rounded-xl px-4 py-3 pr-11 text-sm text-[#1F2937] placeholder:text-[#93C5FD] outline-none focus:border-[#3B82F6] focus:ring-2 focus:ring-[#3B82F6]/20 transition-all duration-200"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPw((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#C4B4A0] hover:text-[#9B7653] transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#93C5FD] hover:text-[#3B82F6] transition-colors"
                 >
                   {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -107,8 +107,8 @@ export default function LoginPage() {
               className={cn(
                 'w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white transition-all duration-200 mt-1',
                 loading
-                  ? 'bg-[#C4A882] cursor-not-allowed'
-                  : 'bg-[#7C5C3E] hover:bg-[#9B7653] active:scale-[0.98]',
+                  ? 'bg-[#93C5FD] cursor-not-allowed'
+                  : 'bg-[#2563EB] hover:bg-[#3B82F6] active:scale-[0.98]',
               )}
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -118,9 +118,9 @@ export default function LoginPage() {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-sm text-[#9A8474] mt-5">
+        <p className="text-center text-sm text-[#6B7280] mt-5">
           Don&apos;t have an account?{' '}
-          <Link href="/signup" className="font-semibold text-[#7C5C3E] hover:text-[#9B7653] transition-colors">
+          <Link href="/signup" className="font-semibold text-[#2563EB] hover:text-[#3B82F6] transition-colors">
             Sign up
           </Link>
         </p>

@@ -121,11 +121,11 @@ function HiddenChatsAccordion({ dynamicHidden, onUnhide, onDeleteHidden }: Hidde
     <div className="px-2 mb-1">
       {/* Trigger / mini-select header */}
       {miniSelect ? (
-        <div className="flex items-center gap-2 px-3 py-2.5 rounded-2xl bg-[#EDE4D6]">
+        <div className="flex items-center gap-2 px-3 py-2.5 rounded-2xl bg-[#DBEAFE]">
           <button
             onClick={handleBulkUnhide}
             disabled={selectedHidden.size === 0}
-            className="flex items-center gap-1.5 text-xs font-semibold text-[#7C5C3E] hover:text-white hover:bg-[#7C5C3E] disabled:opacity-40 disabled:cursor-not-allowed px-2.5 py-1.5 rounded-xl border border-[#C4A882] hover:border-[#7C5C3E] transition-all duration-200 flex-shrink-0"
+            className="flex items-center gap-1.5 text-xs font-semibold text-[#2563EB] hover:text-white hover:bg-[#2563EB] disabled:opacity-40 disabled:cursor-not-allowed px-2.5 py-1.5 rounded-xl border border-[#C4A882] hover:border-[#2563EB] transition-all duration-200 flex-shrink-0"
           >
             <Eye className="w-3.5 h-3.5" />
             Unhide{selectedHidden.size > 0 ? ` (${selectedHidden.size})` : ''}
@@ -141,7 +141,7 @@ function HiddenChatsAccordion({ dynamicHidden, onUnhide, onDeleteHidden }: Hidde
           <div className="flex-1" />
           <button
             onClick={cancelMiniSelect}
-            className="p-1.5 rounded-full hover:bg-[#D4C4B0] transition-colors text-[#9A8474] flex-shrink-0"
+            className="p-1.5 rounded-full hover:bg-[#BFDBFE] transition-colors text-[#6B7280] flex-shrink-0"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -149,20 +149,20 @@ function HiddenChatsAccordion({ dynamicHidden, onUnhide, onDeleteHidden }: Hidde
       ) : (
         <button
           onClick={() => setOpen((v) => !v)}
-          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-2xl hover:bg-[#EDE4D6] transition-colors duration-200 group"
+          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-2xl hover:bg-[#DBEAFE] transition-colors duration-200 group"
         >
-          <div className="w-9 h-9 rounded-xl bg-[#EDE4D6] group-hover:bg-[#E4D5C2] flex items-center justify-center flex-shrink-0 transition-colors duration-200">
-            <EyeOff className="w-4 h-4 text-[#9B7653]" />
+          <div className="w-9 h-9 rounded-xl bg-[#DBEAFE] group-hover:bg-[#BFDBFE] flex items-center justify-center flex-shrink-0 transition-colors duration-200">
+            <EyeOff className="w-4 h-4 text-[#3B82F6]" />
           </div>
           <div className="flex-1 min-w-0 text-left">
-            <p className="text-sm font-semibold text-[#2A1F14]">Hidden Chats</p>
-            <p className="text-xs text-[#9A8474]">{totalCount} archived</p>
+            <p className="text-sm font-semibold text-[#1F2937]">Hidden Chats</p>
+            <p className="text-xs text-[#6B7280]">{totalCount} archived</p>
           </div>
           <motion.div
             animate={{ rotate: open ? 180 : 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 26 }}
           >
-            <ChevronDown className="w-4 h-4 text-[#9A8474] group-hover:text-[#7C5C3E] transition-colors duration-200" />
+            <ChevronDown className="w-4 h-4 text-[#6B7280] group-hover:text-[#2563EB] transition-colors duration-200" />
           </motion.div>
         </button>
       )}
@@ -183,30 +183,30 @@ function HiddenChatsAccordion({ dynamicHidden, onUnhide, onDeleteHidden }: Hidde
               {!miniSelect && allItems.length > 0 && (
                 <button
                   onClick={() => setMiniSelect(true)}
-                  className="self-end text-[10px] font-semibold text-[#9A8474] hover:text-[#7C5C3E] px-3 py-0.5 transition-colors"
+                  className="self-end text-[10px] font-semibold text-[#6B7280] hover:text-[#2563EB] px-3 py-0.5 transition-colors"
                 >
                   Select
                 </button>
               )}
 
               {allItems.length === 0 && (
-                <p className="text-center text-xs text-[#B0A090] py-4">No hidden chats</p>
+                <p className="text-center text-xs text-[#9CA3AF] py-4">No hidden chats</p>
               )}
 
               {allItems.map((item) => (
                 <div
                   key={item.id}
                   onClick={() => miniSelect && toggleItem(item.id)}
-                  className={`group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-colors duration-200 text-left hover:bg-[#EDE4D6] ${
+                  className={`group flex items-center gap-3 px-3 py-2.5 rounded-2xl transition-colors duration-200 text-left hover:bg-[#DBEAFE] ${
                     miniSelect ? 'cursor-pointer' : ''
-                  } ${miniSelect && selectedHidden.has(item.id) ? 'bg-[#E4D5C2]' : ''}`}
+                  } ${miniSelect && selectedHidden.has(item.id) ? 'bg-[#BFDBFE]' : ''}`}
                 >
                   {/* Checkbox in mini-select mode */}
                   {miniSelect && (
                     <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors duration-150 ${
                       selectedHidden.has(item.id)
-                        ? 'bg-[#7C5C3E] border-[#7C5C3E]'
-                        : 'border-[#C4B4A0] bg-white'
+                        ? 'bg-[#2563EB] border-[#2563EB]'
+                        : 'border-[#93C5FD] bg-white'
                     }`}>
                       {selectedHidden.has(item.id) && <Check className="w-2.5 h-2.5 text-white" />}
                     </div>
@@ -214,7 +214,7 @@ function HiddenChatsAccordion({ dynamicHidden, onUnhide, onDeleteHidden }: Hidde
 
                   {/* Avatar */}
                   <div className="relative flex-shrink-0">
-                    <div className="w-10 h-10 rounded-full overflow-hidden bg-[#D4C4B0]">
+                    <div className="w-10 h-10 rounded-full overflow-hidden bg-[#BFDBFE]">
                       <Image
                         src={item.avatar}
                         alt={item.name}
@@ -224,17 +224,17 @@ function HiddenChatsAccordion({ dynamicHidden, onUnhide, onDeleteHidden }: Hidde
                       />
                     </div>
                     {item.isOnline && (
-                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#22C55E] border-2 border-[#F6EEE3]" />
+                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#22C55E] border-2 border-[#EFF6FF]" />
                     )}
                   </div>
 
                   {/* Text */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-semibold text-[#2A1F14] truncate">{item.name}</span>
-                      <span className="text-[11px] text-[#B0A090] flex-shrink-0">{item.time}</span>
+                      <span className="text-sm font-semibold text-[#1F2937] truncate">{item.name}</span>
+                      <span className="text-[11px] text-[#9CA3AF] flex-shrink-0">{item.time}</span>
                     </div>
-                    <p className="text-xs text-[#9A8474] truncate mt-0.5">{item.lastMessage}</p>
+                    <p className="text-xs text-[#6B7280] truncate mt-0.5">{item.lastMessage}</p>
                   </div>
 
                   {/* Inline action buttons — normal mode only */}
@@ -242,7 +242,7 @@ function HiddenChatsAccordion({ dynamicHidden, onUnhide, onDeleteHidden }: Hidde
                     <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={(e) => { e.stopPropagation(); removeItem(item.id, item.isDynamic, 'unhide') }}
-                        className="p-1.5 rounded-lg hover:bg-[#D4C4B0] text-[#9B7653] transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-[#BFDBFE] text-[#3B82F6] transition-colors"
                         title="Unhide"
                       >
                         <Eye className="w-3.5 h-3.5" />
@@ -358,18 +358,18 @@ export default function ConversationList({
       {/* ── Pinned ── */}
       {pinned.length > 0 && (
         <>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9A8474] px-3 pt-2 pb-1">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#6B7280] px-3 pt-2 pb-1">
             Pinned
           </p>
           {pinned.map(renderItem)}
-          <div className="h-px bg-[#E0D5C5] mx-3 my-1" />
+          <div className="h-px bg-[#BFDBFE] mx-3 my-1" />
         </>
       )}
 
       {/* ── Others ── */}
       {others.length > 0 && (
         <>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9A8474] px-3 pb-1">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#6B7280] px-3 pb-1">
             {activeTab === 'people' ? 'Direct Messages' : 'Groups'}
           </p>
           {others.map(renderItem)}
@@ -377,7 +377,7 @@ export default function ConversationList({
       )}
 
       {visible.length === 0 && (
-        <p className="text-center text-sm text-[#B0A090] py-10">
+        <p className="text-center text-sm text-[#9CA3AF] py-10">
           {activeTab === 'people' ? 'No direct messages' : 'No groups yet'}
         </p>
       )}

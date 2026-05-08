@@ -177,7 +177,7 @@ export default function SearchModal() {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: -40, scale: 0.97 }}
             transition={{ duration: 0.22, ease: 'easeOut' }}
-            className="fixed left-3 top-3 bottom-3 w-80 bg-[#F6EEE3] shadow-2xl z-50 flex flex-col border border-[#E0D5C5]"
+            className="fixed left-3 top-3 bottom-3 w-80 bg-[#EFF6FF] shadow-2xl z-50 flex flex-col border border-[#BFDBFE]"
             style={{ borderRadius: 25 }}
           >
             <AnimatePresence mode="wait">
@@ -246,34 +246,34 @@ function SearchView({
     >
       {/* Header */}
       <div className="flex items-center gap-3 px-5 pt-5 pb-3">
-        <h2 className="flex-1 text-lg font-bold text-[#2A1F14]">Search</h2>
+        <h2 className="flex-1 text-lg font-bold text-[#1F2937]">Search</h2>
         <button
           onClick={onNewGroup}
-          className="flex items-center gap-1.5 text-xs font-semibold text-[#7C5C3E] bg-[#EDE4D6] hover:bg-[#E4D5C2] px-2.5 py-1.5 rounded-xl transition-colors"
+          className="flex items-center gap-1.5 text-xs font-semibold text-[#2563EB] bg-[#DBEAFE] hover:bg-[#BFDBFE] px-2.5 py-1.5 rounded-xl transition-colors"
           title="Create group"
         >
           <Users className="w-3.5 h-3.5" />
           New Group
         </button>
-        <button onClick={onClose} className="p-1.5 rounded-full hover:bg-[#EDE4D6] transition-colors text-[#9A8474]">
+        <button onClick={onClose} className="p-1.5 rounded-full hover:bg-[#DBEAFE] transition-colors text-[#6B7280]">
           <X className="w-4 h-4" />
         </button>
       </div>
 
       {/* Search input */}
       <div className="px-4 pb-3">
-        <div className="flex items-center gap-2 bg-white/70 border border-[#E0D5C5] rounded-2xl px-4 py-2.5">
+        <div className="flex items-center gap-2 bg-white/70 border border-[#BFDBFE] rounded-2xl px-4 py-2.5">
           {loading
-            ? <Loader2 className="w-4 h-4 text-[#9A8474] flex-shrink-0 animate-spin" />
-            : <Search className="w-4 h-4 text-[#9A8474] flex-shrink-0" />}
+            ? <Loader2 className="w-4 h-4 text-[#6B7280] flex-shrink-0 animate-spin" />
+            : <Search className="w-4 h-4 text-[#6B7280] flex-shrink-0" />}
           <input
             ref={inputRef} type="text"
             placeholder="Search by name or @username…"
             value={query} onChange={onQueryChange}
-            className="flex-1 bg-transparent text-sm text-[#2A1F14] placeholder-[#B0A090] outline-none"
+            className="flex-1 bg-transparent text-sm text-[#1F2937] placeholder-[#9CA3AF] outline-none"
           />
           {query && (
-            <button onClick={onClearQuery} className="text-[#C4B4A0] hover:text-[#9A8474]">
+            <button onClick={onClearQuery} className="text-[#93C5FD] hover:text-[#6B7280]">
               <X className="w-3.5 h-3.5" />
             </button>
           )}
@@ -282,11 +282,11 @@ function SearchView({
 
       {/* Tabs */}
       <div className="flex px-4 mb-2">
-        <div className="flex items-center bg-[#EDE4D6] rounded-2xl p-1 gap-1 w-full">
+        <div className="flex items-center bg-[#DBEAFE] rounded-2xl p-1 gap-1 w-full">
           {(['people', 'groups'] as Tab[]).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className={`flex-1 text-xs font-semibold py-1.5 rounded-xl capitalize transition-all duration-200 ${
-                tab === t ? 'bg-white text-[#7C5C3E] shadow-sm' : 'text-[#9A8474] hover:text-[#7C5C3E]'
+                tab === t ? 'bg-white text-[#2563EB] shadow-sm' : 'text-[#6B7280] hover:text-[#2563EB]'
               }`}
             >{t}</button>
           ))}
@@ -299,27 +299,27 @@ function SearchView({
           <>
             {loading && results.length === 0 && (
               <div className="flex justify-center mt-8">
-                <Loader2 className="w-5 h-5 text-[#9B7653] animate-spin" />
+                <Loader2 className="w-5 h-5 text-[#3B82F6] animate-spin" />
               </div>
             )}
             {!loading && results.length === 0 && (
-              <p className="text-center text-sm text-[#B0A090] mt-8">
+              <p className="text-center text-sm text-[#9CA3AF] mt-8">
                 {query ? 'No people found' : 'No other users yet'}
               </p>
             )}
             {results.map((user) => (
               <button key={user._id} onClick={() => onSelectPerson(user)} disabled={starting === user._id}
-                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#EDE4D6] transition-colors disabled:opacity-60"
+                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#DBEAFE] transition-colors disabled:opacity-60"
               >
                 <Avatar src={user.avatar} initials={user.displayName.slice(0, 2).toUpperCase()}
                   name={user.displayName} id={user._id} size="md" isOnline={user.isOnline} />
                 <div className="min-w-0 text-left flex-1">
-                  <p className="text-sm font-semibold text-[#2A1F14] truncate">{user.displayName}</p>
-                  <p className="text-xs text-[#9A8474]">@{user.username}</p>
+                  <p className="text-sm font-semibold text-[#1F2937] truncate">{user.displayName}</p>
+                  <p className="text-xs text-[#6B7280]">@{user.username}</p>
                 </div>
                 {starting === user._id
-                  ? <Loader2 className="w-4 h-4 text-[#9B7653] animate-spin flex-shrink-0" />
-                  : <Plus className="w-4 h-4 text-[#C4B4A0] flex-shrink-0 opacity-0 group-hover:opacity-100" />}
+                  ? <Loader2 className="w-4 h-4 text-[#3B82F6] animate-spin flex-shrink-0" />
+                  : <Plus className="w-4 h-4 text-[#93C5FD] flex-shrink-0 opacity-0 group-hover:opacity-100" />}
               </button>
             ))}
           </>
@@ -331,21 +331,21 @@ function SearchView({
             <div className="px-3 pb-2">
               <button
                 onClick={onNewGroup}
-                className="w-full flex items-center gap-3 px-4 py-2.5 bg-[#7C5C3E]/10 hover:bg-[#7C5C3E]/20 border border-[#7C5C3E]/20 rounded-2xl transition-colors"
+                className="w-full flex items-center gap-3 px-4 py-2.5 bg-[#2563EB]/10 hover:bg-[#2563EB]/20 border border-[#2563EB]/20 rounded-2xl transition-colors"
               >
-                <div className="w-10 h-10 rounded-full bg-[#7C5C3E] flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 rounded-full bg-[#2563EB] flex items-center justify-center flex-shrink-0">
                   <Users className="w-5 h-5 text-white" />
                 </div>
                 <div className="text-left">
-                  <p className="text-sm font-semibold text-[#7C5C3E]">Create a Group</p>
-                  <p className="text-xs text-[#9A8474]">Add members and start chatting</p>
+                  <p className="text-sm font-semibold text-[#2563EB]">Create a Group</p>
+                  <p className="text-xs text-[#6B7280]">Add members and start chatting</p>
                 </div>
               </button>
             </div>
 
             {/* Divider + label */}
             {realGroups.length > 0 && (
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9A8474] px-4 pt-1 pb-1">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#6B7280] px-4 pt-1 pb-1">
                 Your Groups
               </p>
             )}
@@ -358,14 +358,14 @@ function SearchView({
                 const onlineCount = group.members.filter((m) => m.isOnline).length
                 return (
                   <button key={group._id} onClick={() => onSelectGroup(group._id)}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#EDE4D6] transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#DBEAFE] transition-colors"
                   >
-                    <div className="w-10 h-10 rounded-full bg-[#C4A882] flex items-center justify-center flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-[#93C5FD] flex items-center justify-center flex-shrink-0">
                       <span className="text-sm font-bold text-white">{name.slice(0, 2).toUpperCase()}</span>
                     </div>
                     <div className="min-w-0 text-left">
-                      <p className="text-sm font-semibold text-[#2A1F14] truncate">{name}</p>
-                      <p className="text-xs text-[#9A8474]">
+                      <p className="text-sm font-semibold text-[#1F2937] truncate">{name}</p>
+                      <p className="text-xs text-[#6B7280]">
                         {group.members.length} members{onlineCount > 0 ? ` · ${onlineCount} online` : ''}
                       </p>
                     </div>
@@ -374,7 +374,7 @@ function SearchView({
               })}
 
             {realGroups.length === 0 && (
-              <p className="text-center text-sm text-[#B0A090] mt-4 px-4">No groups yet. Create one!</p>
+              <p className="text-center text-sm text-[#9CA3AF] mt-4 px-4">No groups yet. Create one!</p>
             )}
           </>
         )}
@@ -409,14 +409,14 @@ function CreateGroupView({
     >
       {/* Header */}
       <div className="flex items-center gap-3 px-5 pt-5 pb-3">
-        <button onClick={onBack} className="p-1.5 rounded-full hover:bg-[#EDE4D6] transition-colors text-[#9A8474]">
+        <button onClick={onBack} className="p-1.5 rounded-full hover:bg-[#DBEAFE] transition-colors text-[#6B7280]">
           <ArrowLeft className="w-4 h-4" />
         </button>
-        <h2 className="flex-1 text-base font-bold text-[#2A1F14]">New Group</h2>
+        <h2 className="flex-1 text-base font-bold text-[#1F2937]">New Group</h2>
         <button
           onClick={onCreateGroup}
           disabled={creating || !groupName.trim() || selected.length < 1}
-          className="flex items-center gap-1.5 text-xs font-semibold text-white bg-[#7C5C3E] hover:bg-[#9B7653] disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-xl transition-colors"
+          className="flex items-center gap-1.5 text-xs font-semibold text-white bg-[#2563EB] hover:bg-[#3B82F6] disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-xl transition-colors"
         >
           {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
           Create
@@ -432,7 +432,7 @@ function CreateGroupView({
           value={groupName}
           onChange={(e) => onGroupNameChange(e.target.value)}
           maxLength={80}
-          className="w-full bg-white border border-[#E0D5C5] focus:border-[#9B7653] focus:ring-2 focus:ring-[#9B7653]/20 rounded-2xl px-4 py-2.5 text-sm text-[#2A1F14] placeholder-[#B0A090] outline-none transition-all"
+          className="w-full bg-white border border-[#BFDBFE] focus:border-[#3B82F6] focus:ring-2 focus:ring-[#3B82F6]/20 rounded-2xl px-4 py-2.5 text-sm text-[#1F2937] placeholder-[#9CA3AF] outline-none transition-all"
         />
         {createError && <p className="text-xs text-red-400 mt-1 px-1">{createError}</p>}
       </div>
@@ -444,7 +444,7 @@ function CreateGroupView({
             <button
               key={u._id}
               onClick={() => onToggleMember(u)}
-              className="flex items-center gap-1.5 bg-[#7C5C3E]/10 hover:bg-[#7C5C3E]/20 border border-[#7C5C3E]/20 text-[#7C5C3E] text-xs font-semibold px-2.5 py-1 rounded-full transition-colors"
+              className="flex items-center gap-1.5 bg-[#2563EB]/10 hover:bg-[#2563EB]/20 border border-[#2563EB]/20 text-[#2563EB] text-xs font-semibold px-2.5 py-1 rounded-full transition-colors"
             >
               <span>{u.displayName}</span>
               <X className="w-3 h-3" />
@@ -454,7 +454,7 @@ function CreateGroupView({
       )}
 
       {/* Member count hint */}
-      <p className="text-[11px] text-[#9A8474] px-4 mb-2">
+      <p className="text-[11px] text-[#6B7280] px-4 mb-2">
         {selected.length === 0
           ? 'Search and add members below'
           : `${selected.length} member${selected.length > 1 ? 's' : ''} added`}
@@ -462,18 +462,18 @@ function CreateGroupView({
 
       {/* Search members */}
       <div className="px-4 pb-3">
-        <div className="flex items-center gap-2 bg-white/70 border border-[#E0D5C5] rounded-2xl px-4 py-2.5">
+        <div className="flex items-center gap-2 bg-white/70 border border-[#BFDBFE] rounded-2xl px-4 py-2.5">
           {loading
-            ? <Loader2 className="w-4 h-4 text-[#9A8474] flex-shrink-0 animate-spin" />
-            : <Search className="w-4 h-4 text-[#9A8474] flex-shrink-0" />}
+            ? <Loader2 className="w-4 h-4 text-[#6B7280] flex-shrink-0 animate-spin" />
+            : <Search className="w-4 h-4 text-[#6B7280] flex-shrink-0" />}
           <input
             ref={inputRef} type="text"
             placeholder="Search people to add…"
             value={query} onChange={onQueryChange}
-            className="flex-1 bg-transparent text-sm text-[#2A1F14] placeholder-[#B0A090] outline-none"
+            className="flex-1 bg-transparent text-sm text-[#1F2937] placeholder-[#9CA3AF] outline-none"
           />
           {query && (
-            <button onClick={onClearQuery} className="text-[#C4B4A0] hover:text-[#9A8474]">
+            <button onClick={onClearQuery} className="text-[#93C5FD] hover:text-[#6B7280]">
               <X className="w-3.5 h-3.5" />
             </button>
           )}
@@ -483,27 +483,27 @@ function CreateGroupView({
       {/* Results */}
       <div className="flex-1 overflow-y-auto chat-scrollbar py-1">
         {!query && (
-          <p className="text-center text-sm text-[#B0A090] mt-6">Search to add people</p>
+          <p className="text-center text-sm text-[#9CA3AF] mt-6">Search to add people</p>
         )}
         {query && !loading && results.length === 0 && (
-          <p className="text-center text-sm text-[#B0A090] mt-6">No people found</p>
+          <p className="text-center text-sm text-[#9CA3AF] mt-6">No people found</p>
         )}
         {results.map((user) => {
           const isSelected = selected.some((u) => u._id === user._id)
           return (
             <button key={user._id} onClick={() => onToggleMember(user)}
               className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors ${
-                isSelected ? 'bg-[#EDE4D6]' : 'hover:bg-[#EDE4D6]/60'
+                isSelected ? 'bg-[#DBEAFE]' : 'hover:bg-[#DBEAFE]/60'
               }`}
             >
               <Avatar src={user.avatar} initials={user.displayName.slice(0, 2).toUpperCase()}
                 name={user.displayName} id={user._id} size="md" isOnline={user.isOnline} />
               <div className="min-w-0 text-left flex-1">
-                <p className="text-sm font-semibold text-[#2A1F14] truncate">{user.displayName}</p>
-                <p className="text-xs text-[#9A8474]">@{user.username}</p>
+                <p className="text-sm font-semibold text-[#1F2937] truncate">{user.displayName}</p>
+                <p className="text-xs text-[#6B7280]">@{user.username}</p>
               </div>
               <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-                isSelected ? 'bg-[#7C5C3E] border-[#7C5C3E]' : 'border-[#C4B4A0]'
+                isSelected ? 'bg-[#2563EB] border-[#2563EB]' : 'border-[#93C5FD]'
               }`}>
                 {isSelected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
               </div>

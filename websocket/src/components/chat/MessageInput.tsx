@@ -70,21 +70,21 @@ export default function MessageInput({ onSend, onTypingStart, onTypingStop }: Me
   const isValid = value.trim().length > 0
 
   return (
-    <div className="px-4 py-3 border-t border-[#E0D5C5] flex-shrink-0">
+    <div className="px-4 py-3 border-t border-[#BFDBFE] flex-shrink-0">
       <div
         className={cn(
           'flex items-center gap-2 bg-white/70 border rounded-2xl px-3 py-2.5 transition-all duration-200',
-          error ? 'border-red-300' : 'border-[#E0D5C5] focus-within:border-[#9B7653] focus-within:bg-white/90',
+          error ? 'border-red-300' : 'border-[#BFDBFE] focus-within:border-[#3B82F6] focus-within:bg-white/90',
         )}
       >
         {/* Emoji */}
-        <button className="p-1.5 rounded-full hover:bg-[#EDE4D6] transition-colors flex-shrink-0">
-          <Smile className="w-4 h-4 text-[#9A8474]" />
+        <button className="p-1.5 rounded-full hover:bg-[#DBEAFE] transition-colors flex-shrink-0">
+          <Smile className="w-4 h-4 text-[#6B7280]" />
         </button>
 
         {/* Attach */}
-        <button className="p-1.5 rounded-full hover:bg-[#EDE4D6] transition-colors flex-shrink-0">
-          <Paperclip className="w-4 h-4 text-[#9A8474]" />
+        <button className="p-1.5 rounded-full hover:bg-[#DBEAFE] transition-colors flex-shrink-0">
+          <Paperclip className="w-4 h-4 text-[#6B7280]" />
         </button>
 
         {/* Input */}
@@ -94,12 +94,12 @@ export default function MessageInput({ onSend, onTypingStart, onTypingStop }: Me
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           placeholder="Type a message…"
-          className="flex-1 bg-transparent text-sm text-[#2A1F14] placeholder-[#B0A090] outline-none"
+          className="flex-1 bg-transparent text-sm text-[#1F2937] placeholder-[#9CA3AF] outline-none"
         />
 
         {/* Mic */}
-        <button className="p-1.5 rounded-full hover:bg-[#EDE4D6] transition-colors flex-shrink-0">
-          <Mic className="w-4 h-4 text-[#9A8474]" />
+        <button className="p-1.5 rounded-full hover:bg-[#DBEAFE] transition-colors flex-shrink-0">
+          <Mic className="w-4 h-4 text-[#6B7280]" />
         </button>
 
         {/* Send */}
@@ -109,8 +109,8 @@ export default function MessageInput({ onSend, onTypingStart, onTypingStop }: Me
           className={cn(
             'p-2 rounded-full transition-all duration-200 flex-shrink-0',
             isValid
-              ? 'bg-[#7C5C3E] hover:bg-[#9B7653] text-white shadow-sm'
-              : 'bg-[#E4D5C2] text-[#B0A090] cursor-not-allowed',
+              ? 'bg-[#2563EB] hover:bg-[#3B82F6] text-white shadow-sm'
+              : 'bg-[#BFDBFE] text-[#9CA3AF] cursor-not-allowed',
           )}
         >
           <SendHorizonal className="w-4 h-4" />

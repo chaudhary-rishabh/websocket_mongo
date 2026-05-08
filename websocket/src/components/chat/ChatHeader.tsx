@@ -53,7 +53,7 @@ export default function ChatHeader({
         {!isSelectMode && (
           <button
             onClick={toggleSidebar}
-            className="md:hidden p-2 rounded-full hover:bg-[#EDE4D6] transition-colors text-[#9A8474]"
+            className="md:hidden p-2 rounded-full hover:bg-[#DBEAFE] transition-colors text-[#6B7280]"
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -75,22 +75,22 @@ export default function ChatHeader({
         {/* Title */}
         <div className="flex-1 min-w-0">
           {isSelectMode ? (
-            <h1 className="text-base font-bold text-[#7C5C3E]">Select Messages</h1>
+            <h1 className="text-base font-bold text-[#2563EB]">Select Messages</h1>
           ) : isGroup ? (
             <button onClick={() => setMembersOpen(true)} className="flex items-center gap-1 group max-w-full text-left">
-              <h1 className="text-base font-bold text-[#2A1F14] truncate group-hover:text-[#7C5C3E] transition-colors duration-150">
+              <h1 className="text-base font-bold text-[#1F2937] truncate group-hover:text-[#2563EB] transition-colors duration-150">
                 {conversation.name}
               </h1>
-              <ChevronDown className="w-3.5 h-3.5 text-[#9A8474] group-hover:text-[#7C5C3E] transition-colors flex-shrink-0" />
+              <ChevronDown className="w-3.5 h-3.5 text-[#6B7280] group-hover:text-[#2563EB] transition-colors flex-shrink-0" />
             </button>
           ) : (
             <Link href={`/user/${otherUserId ?? ''}`} className="group block">
-              <h1 className="text-base font-bold text-[#2A1F14] truncate group-hover:text-[#7C5C3E] transition-colors duration-150">
+              <h1 className="text-base font-bold text-[#1F2937] truncate group-hover:text-[#2563EB] transition-colors duration-150">
                 {conversation.name}
               </h1>
             </Link>
           )}
-          {!isSelectMode && <p className="text-xs text-[#9A8474]">{subtitle}</p>}
+          {!isSelectMode && <p className="text-xs text-[#6B7280]">{subtitle}</p>}
         </div>
 
         {/* Actions */}
@@ -107,7 +107,7 @@ export default function ChatHeader({
               </button>
               <button
                 onClick={onExitSelectMode}
-                className="flex items-center gap-1.5 text-xs font-semibold text-[#9A8474] hover:text-[#7C5C3E] px-2 py-1.5 rounded-xl hover:bg-[#EDE4D6] transition-colors"
+                className="flex items-center gap-1.5 text-xs font-semibold text-[#6B7280] hover:text-[#2563EB] px-2 py-1.5 rounded-xl hover:bg-[#DBEAFE] transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
                 Cancel
@@ -117,7 +117,7 @@ export default function ChatHeader({
             <>
               <button
                 onClick={onEnterSelectMode}
-                className="flex items-center gap-1 text-xs font-semibold text-[#9A8474] hover:text-[#7C5C3E] px-2 py-1.5 rounded-xl hover:bg-[#EDE4D6] transition-colors"
+                className="flex items-center gap-1 text-xs font-semibold text-[#6B7280] hover:text-[#2563EB] px-2 py-1.5 rounded-xl hover:bg-[#DBEAFE] transition-colors"
                 title="Select messages"
               >
                 <CheckSquare className="w-3.5 h-3.5" />
@@ -125,14 +125,14 @@ export default function ChatHeader({
               </button>
               <button
                 onClick={() => setSearchOpen(true)}
-                className="p-2 rounded-full hover:bg-[#EDE4D6] transition-all duration-200 text-[#9A8474] hover:text-[#7C5C3E]"
+                className="p-2 rounded-full hover:bg-[#DBEAFE] transition-all duration-200 text-[#6B7280] hover:text-[#2563EB]"
               >
                 <Search className="w-4 h-4" />
               </button>
-              <button className="p-2 rounded-full hover:bg-[#EDE4D6] transition-all duration-200 text-[#9A8474] hover:text-[#7C5C3E]">
+              <button className="p-2 rounded-full hover:bg-[#DBEAFE] transition-all duration-200 text-[#6B7280] hover:text-[#2563EB]">
                 <Phone className="w-4 h-4" />
               </button>
-              <button className="p-2 rounded-full hover:bg-[#EDE4D6] transition-all duration-200 text-[#9A8474] hover:text-[#7C5C3E]">
+              <button className="p-2 rounded-full hover:bg-[#DBEAFE] transition-all duration-200 text-[#6B7280] hover:text-[#2563EB]">
                 <MoreVertical className="w-4 h-4" />
               </button>
             </>

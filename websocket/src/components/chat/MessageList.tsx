@@ -68,7 +68,7 @@ export default function MessageList({
               'flex rounded-2xl transition-colors duration-150',
               isMe ? 'justify-end' : 'justify-start',
               isSelectMode && 'cursor-pointer px-2 py-1',
-              isSelectMode && isSelected && 'bg-[#E4D5C2]/60',
+              isSelectMode && isSelected && 'bg-[#BFDBFE]/60',
             )}
           >
             <MessageBubble
@@ -134,7 +134,7 @@ export default function MessageList({
                 'flex rounded-2xl transition-colors duration-150',
                 isMe ? 'justify-end' : 'justify-start',
                 isSelectMode && 'cursor-pointer px-2 py-1',
-                isSelectMode && isSelected && 'bg-[#E4D5C2]/60',
+                isSelectMode && isSelected && 'bg-[#BFDBFE]/60',
                 message.isPending && 'opacity-60',
               )}
             >

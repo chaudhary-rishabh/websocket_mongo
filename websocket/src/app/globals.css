@@ -82,18 +82,18 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
 
-  /* Chat app — warm cream palette */
-  --chat-cream:   #F6EFE4;
-  --chat-hover:   #EDE4D6;
-  --chat-active:  #E4D5C2;
-  --chat-accent:  #7C5C3E;
-  --chat-accent2: #9B7653;
-  --chat-text:    #2A1F14;
-  --chat-muted:   #9A8474;
-  --chat-border:  #E0D5C5;
-  --chat-sent:    #EDE0CB;
+  /* Chat app — blue palette */
+  --chat-cream:   #EFF6FF;
+  --chat-hover:   #DBEAFE;
+  --chat-active:  #BFDBFE;
+  --chat-accent:  #2563EB;
+  --chat-accent2: #3B82F6;
+  --chat-text:    #1F2937;
+  --chat-muted:   #6B7280;
+  --chat-border:  #BFDBFE;
+  --chat-sent:    #DBEAFE;
   --chat-online:  #22C55E;
-  --chat-unread:  #C0582A;
+  --chat-unread:  #EF4444;
 }
 
 .dark {
@@ -153,11 +153,11 @@
   background: transparent;
 }
 .chat-scrollbar::-webkit-scrollbar-thumb {
-  background: #D4C4B0;
+  background: #D1D5DB;
   border-radius: 2px;
 }
 .chat-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #B8A090;
+  background: #9CA3AF;
 }
 
 /* Waveform animation */
@@ -166,24 +166,19 @@
   50% { transform: scaleY(1); }
 }
 
-/* Tiny 1px crossing grid — full page */
-.bg-texture {
-  background-image:
-    linear-gradient(rgba(124, 92, 62, 0.10) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(124, 92, 62, 0.10) 1px, transparent 1px);
-  background-size: 16px 16px;
-}
+/* bg-texture kept as no-op (grid pattern removed) */
+.bg-texture {}
 
 
 /* Frosted backdrop for chat header — messages blur behind as you scroll */
 .header-glass {
   background: linear-gradient(
     180deg,
-    rgba(246, 238, 227, 0.82) 0%,
-    rgba(246, 238, 227, 0.60) 100%
+    rgba(255, 255, 255, 0.88) 0%,
+    rgba(255, 255, 255, 0.70) 100%
   );
   backdrop-filter: blur(20px) saturate(1.5);
   -webkit-backdrop-filter: blur(20px) saturate(1.5);
-  border-bottom: 1px solid rgba(224, 213, 197, 0.70);
-  box-shadow: 0 2px 12px rgba(124, 92, 62, 0.08);
+  border-bottom: 1px solid rgba(229, 231, 235, 0.80);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }

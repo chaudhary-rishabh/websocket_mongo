@@ -24,7 +24,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       role="switch"
       className={cn(
         'relative w-11 h-6 rounded-full transition-colors duration-200 flex-shrink-0',
-        checked ? 'bg-[#7C5C3E]' : 'bg-[#D4C4B0]',
+        checked ? 'bg-[#2563EB]' : 'bg-[#BFDBFE]',
       )}
     >
       <span
@@ -49,23 +49,23 @@ function Row({
 }) {
   return (
     <div className="flex items-center gap-3 px-5 py-3.5">
-      <Icon className={cn('w-[18px] h-[18px] flex-shrink-0', danger ? 'text-red-400' : 'text-[#9B7653]')} />
+      <Icon className={cn('w-[18px] h-[18px] flex-shrink-0', danger ? 'text-red-400' : 'text-[#3B82F6]')} />
       <div className="flex-1 min-w-0">
-        <p className={cn('text-sm font-medium', danger ? 'text-red-500' : 'text-[#2A1F14]')}>{label}</p>
-        {sublabel && <p className="text-xs text-[#9A8474] mt-0.5 truncate">{sublabel}</p>}
+        <p className={cn('text-sm font-medium', danger ? 'text-red-500' : 'text-[#1F2937]')}>{label}</p>
+        {sublabel && <p className="text-xs text-[#6B7280] mt-0.5 truncate">{sublabel}</p>}
       </div>
-      {right ?? <ChevronRight className="w-4 h-4 text-[#C4B4A0]" />}
+      {right ?? <ChevronRight className="w-4 h-4 text-[#93C5FD]" />}
     </div>
   )
 }
 
 function Divider() {
-  return <div className="h-px bg-[#E0D5C5] mx-5" />
+  return <div className="h-px bg-[#BFDBFE] mx-5" />
 }
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <p className="text-[11px] font-semibold uppercase tracking-widest text-[#9A8474] px-5 pt-5 pb-1.5">
+    <p className="text-[11px] font-semibold uppercase tracking-widest text-[#6B7280] px-5 pt-5 pb-1.5">
       {children}
     </p>
   )
@@ -158,12 +158,12 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-white bg-texture">
 
       {/* ── Top bar ── */}
-      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-[#E0D5C5] px-4 py-3 flex items-center gap-3">
-        <Link href="/chat" className="p-2 -ml-1 rounded-full hover:bg-[#EDE4D6] transition-colors">
-          <ArrowLeft className="w-4 h-4 text-[#9A8474]" />
+      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-[#BFDBFE] px-4 py-3 flex items-center gap-3">
+        <Link href="/chat" className="p-2 -ml-1 rounded-full hover:bg-[#DBEAFE] transition-colors">
+          <ArrowLeft className="w-4 h-4 text-[#6B7280]" />
         </Link>
-        <span className="text-sm font-semibold text-[#2A1F14]">My Profile</span>
-        {saving && <Loader2 className="w-4 h-4 text-[#9B7653] animate-spin ml-auto" />}
+        <span className="text-sm font-semibold text-[#1F2937]">My Profile</span>
+        {saving && <Loader2 className="w-4 h-4 text-[#3B82F6] animate-spin ml-auto" />}
       </div>
 
       <div className="max-w-md mx-auto px-4 py-6 flex flex-col gap-3">
@@ -176,19 +176,19 @@ export default function ProfilePage() {
         )}
 
         {/* ── Hero card ── */}
-        <div className="bg-[#F6EEE3] rounded-[25px] overflow-hidden border border-[#E0D5C5]">
+        <div className="bg-[#EFF6FF] rounded-[25px] overflow-hidden border border-[#BFDBFE]">
           {/* Gradient strip */}
-          <div className="h-20 bg-gradient-to-br from-[#9B7653] to-[#C4A882]" />
+          <div className="h-20 bg-gradient-to-br from-[#3B82F6] to-[#93C5FD]" />
 
           {/* Avatar + identity */}
           <div className="px-5 pb-5 flex flex-col items-center -mt-10">
             {/* Avatar */}
             <motion.div className="relative cursor-pointer">
-              <div className="w-20 h-20 rounded-full ring-4 ring-[#F6EEE3] overflow-hidden shadow-md">
+              <div className="w-20 h-20 rounded-full ring-4 ring-[#EFF6FF] overflow-hidden shadow-md">
                 {avatarUrl ? (
                   <Image src={avatarUrl} alt={displayName} width={80} height={80} className="object-cover" />
                 ) : (
-                  <div className="w-full h-full bg-[#7C5C3E] flex items-center justify-center">
+                  <div className="w-full h-full bg-[#2563EB] flex items-center justify-center">
                     <span className="text-xl font-bold text-white">{initials || '?'}</span>
                   </div>
                 )}
@@ -212,21 +212,21 @@ export default function ProfilePage() {
                     value={nameInput}
                     onChange={(e) => setNameInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && saveName()}
-                    className="text-base font-bold text-[#2A1F14] border-b-2 border-[#7C5C3E] outline-none bg-transparent text-center min-w-0 w-44"
+                    className="text-base font-bold text-[#1F2937] border-b-2 border-[#2563EB] outline-none bg-transparent text-center min-w-0 w-44"
                   />
-                  <button onClick={saveName}><Check className="w-4 h-4 text-[#7C5C3E]" /></button>
+                  <button onClick={saveName}><Check className="w-4 h-4 text-[#2563EB]" /></button>
                   <button onClick={() => { setNameInput(displayName); setEditingName(false) }}>
-                    <X className="w-4 h-4 text-[#9A8474]" />
+                    <X className="w-4 h-4 text-[#6B7280]" />
                   </button>
                 </>
               ) : (
                 <>
-                  <h2 className="text-base font-bold text-[#2A1F14]">
-                    {displayName || <span className="text-[#C4B4A0]">Add your name</span>}
+                  <h2 className="text-base font-bold text-[#1F2937]">
+                    {displayName || <span className="text-[#93C5FD]">Add your name</span>}
                   </h2>
                   <button
                     onClick={() => { setNameInput(displayName); setEditingName(true) }}
-                    className="text-[#C4B4A0] hover:text-[#7C5C3E] transition-colors"
+                    className="text-[#93C5FD] hover:text-[#2563EB] transition-colors"
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
@@ -243,21 +243,21 @@ export default function ProfilePage() {
                     value={bioInput}
                     onChange={(e) => setBioInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && saveBio()}
-                    className="text-xs text-[#9A8474] border-b border-[#7C5C3E] outline-none bg-transparent text-center w-56"
+                    className="text-xs text-[#6B7280] border-b border-[#2563EB] outline-none bg-transparent text-center w-56"
                   />
-                  <button onClick={saveBio}><Check className="w-3.5 h-3.5 text-[#7C5C3E]" /></button>
+                  <button onClick={saveBio}><Check className="w-3.5 h-3.5 text-[#2563EB]" /></button>
                   <button onClick={() => { setBioInput(bio); setEditingBio(false) }}>
-                    <X className="w-3.5 h-3.5 text-[#9A8474]" />
+                    <X className="w-3.5 h-3.5 text-[#6B7280]" />
                   </button>
                 </>
               ) : (
                 <>
-                  <p className="text-xs text-[#9A8474] text-center">
-                    {bio || <span className="text-[#C4B4A0]">Add a bio…</span>}
+                  <p className="text-xs text-[#6B7280] text-center">
+                    {bio || <span className="text-[#93C5FD]">Add a bio…</span>}
                   </p>
                   <button
                     onClick={() => { setBioInput(bio); setEditingBio(true) }}
-                    className="text-[#C4B4A0] hover:text-[#7C5C3E] transition-colors flex-shrink-0"
+                    className="text-[#93C5FD] hover:text-[#2563EB] transition-colors flex-shrink-0"
                   >
                     <Pencil className="w-3 h-3" />
                   </button>
@@ -273,22 +273,22 @@ export default function ProfilePage() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-3 border-t border-[#E0D5C5]">
+          <div className="grid grid-cols-3 border-t border-[#BFDBFE]">
             {[
               { value: '1.2k', label: 'Messages' },
               { value: '4',    label: 'Groups'   },
               { value: '28',   label: 'Contacts'  },
             ].map((s, i) => (
-              <div key={i} className={cn('flex flex-col items-center py-4 gap-0.5', i > 0 && 'border-l border-[#E0D5C5]')}>
-                <span className="text-base font-bold text-[#2A1F14]">{s.value}</span>
-                <span className="text-[11px] text-[#9A8474]">{s.label}</span>
+              <div key={i} className={cn('flex flex-col items-center py-4 gap-0.5', i > 0 && 'border-l border-[#BFDBFE]')}>
+                <span className="text-base font-bold text-[#1F2937]">{s.value}</span>
+                <span className="text-[11px] text-[#6B7280]">{s.label}</span>
               </div>
             ))}
           </div>
         </div>
 
         {/* ── Settings ── */}
-        <div className="bg-[#F6EEE3] rounded-[25px] overflow-hidden border border-[#E0D5C5]">
+        <div className="bg-[#EFF6FF] rounded-[25px] overflow-hidden border border-[#BFDBFE]">
           <SectionLabel>Notifications</SectionLabel>
           <Row
             icon={Bell}
@@ -318,7 +318,7 @@ export default function ProfilePage() {
         <button
           onClick={handleLogout}
           disabled={loggingOut}
-          className="w-full bg-[#F6EEE3] border border-[#E0D5C5] rounded-[25px] py-3.5 flex items-center justify-center gap-2 text-sm font-semibold text-red-500 hover:bg-red-50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-200"
+          className="w-full bg-[#EFF6FF] border border-[#BFDBFE] rounded-[25px] py-3.5 flex items-center justify-center gap-2 text-sm font-semibold text-red-500 hover:bg-red-50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors duration-200"
         >
           {loggingOut
             ? <Loader2 className="w-4 h-4 animate-spin" />

@@ -199,7 +199,7 @@ export default function ChatView({ conversationId }: ChatViewProps) {
 
   if (!conversation && !isReal) {
     return (
-      <div className="flex items-center justify-center h-full text-[#9A8474] text-sm">
+      <div className="flex items-center justify-center h-full text-[#6B7280] text-sm">
         Conversation not found
       </div>
     )
@@ -247,15 +247,15 @@ export default function ChatView({ conversationId }: ChatViewProps) {
             animate={{ y: 0,  opacity: 1 }}
             exit={{    y: 60, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 420, damping: 38 }}
-            className="flex-shrink-0 border-t border-[#E0D5C5] px-4 py-3 flex items-center gap-3"
+            className="flex-shrink-0 border-t border-[#BFDBFE] px-4 py-3 flex items-center gap-3"
           >
             <button
               onClick={cancelSelect}
-              className="p-2 rounded-full hover:bg-[#EDE4D6] transition-colors text-[#9A8474]"
+              className="p-2 rounded-full hover:bg-[#DBEAFE] transition-colors text-[#6B7280]"
             >
               <X className="w-4 h-4" />
             </button>
-            <span className="flex-1 text-sm text-[#9A8474] text-center">
+            <span className="flex-1 text-sm text-[#6B7280] text-center">
               {selectedIds.size === 0
                 ? 'Tap messages to select'
                 : `${selectedIds.size} message${selectedIds.size > 1 ? 's' : ''} selected`}

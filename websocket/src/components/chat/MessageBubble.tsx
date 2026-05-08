@@ -27,7 +27,7 @@ const WAVEFORM = [3, 6, 9, 7, 4, 8, 11, 6, 3, 7, 10, 5, 8, 6, 3, 7, 11, 6, 4, 8,
 
 function MetaRow({ viewCount, timestamp, sent }: { viewCount: number; timestamp: string; sent?: boolean }) {
   return (
-    <div className={cn('flex items-center gap-1 text-[10px] mt-1 justify-end', sent ? 'text-[#9B7653]/70' : 'text-[#9A8474]')}>
+    <div className={cn('flex items-center gap-1 text-[10px] mt-1 justify-end', sent ? 'text-[#3B82F6]/70' : 'text-[#6B7280]')}>
       <Eye className="w-3 h-3" />
       <span>{viewCount}</span>
       <span className="ml-1">{formatMessageTime(timestamp)}</span>
@@ -41,8 +41,8 @@ function ReactionBar({ reactions, onAdd }: { reactions: Reaction[]; onAdd: (e: s
     <div className="flex flex-wrap gap-1 mt-1.5">
       {reactions.map((r) => (
         <button key={r.emoji} onClick={() => onAdd(r.emoji)}
-          className="inline-flex items-center gap-0.5 bg-white/80 border border-[#E0D5C5] hover:border-[#9B7653]/40 hover:bg-[#F6EEE3] rounded-full px-2 py-0.5 text-[11px] shadow-sm transition-colors duration-150">
-          {r.emoji}<span className="text-[#9A8474] font-medium">{r.count}</span>
+          className="inline-flex items-center gap-0.5 bg-white/80 border border-[#BFDBFE] hover:border-[#3B82F6]/40 hover:bg-[#F6EEE3] rounded-full px-2 py-0.5 text-[11px] shadow-sm transition-colors duration-150">
+          {r.emoji}<span className="text-[#6B7280] font-medium">{r.count}</span>
         </button>
       ))}
     </div>
@@ -66,11 +66,11 @@ function ReactionTrigger({ isMe, onClick }: { isMe: boolean; onClick: () => void
   return (
     <button onClick={(e) => { e.stopPropagation(); onClick() }}
       className={cn(
-        'flex-shrink-0 opacity-0 group-hover:opacity-100 p-1.5 rounded-full bg-white/70 border border-[#E0D5C5] shadow-sm self-center',
-        'hover:bg-[#EDE4D6] hover:border-[#C4B4A0] transition-all duration-150 focus:opacity-100',
+        'flex-shrink-0 opacity-0 group-hover:opacity-100 p-1.5 rounded-full bg-white/70 border border-[#BFDBFE] shadow-sm self-center',
+        'hover:bg-[#DBEAFE] hover:border-[#93C5FD] transition-all duration-150 focus:opacity-100',
         isMe ? 'order-first' : 'order-last',
       )}>
-      <SmilePlus className="w-3.5 h-3.5 text-[#9A8474] hover:text-[#7C5C3E]" />
+      <SmilePlus className="w-3.5 h-3.5 text-[#6B7280] hover:text-[#2563EB]" />
     </button>
   )
 }
@@ -79,7 +79,7 @@ function SelectCircle({ isSelected }: { isSelected: boolean }) {
   return (
     <div className={cn(
       'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all duration-150 self-center',
-      isSelected ? 'bg-[#7C5C3E] border-[#7C5C3E]' : 'border-[#C4B4A0] bg-white/60',
+      isSelected ? 'bg-[#2563EB] border-[#2563EB]' : 'border-[#93C5FD] bg-white/60',
     )}>
       {isSelected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
     </div>
@@ -114,15 +114,15 @@ export default function MessageBubble({
 
           <div className={cn('flex flex-col min-w-0', isMe ? 'items-end' : 'items-start')}>
             {!isMe && sender && (
-              <Link href={`/user/${sender.id}`} className="text-[11px] font-semibold text-[#9B7653] mb-1 ml-1 hover:underline">
+              <Link href={`/user/${sender.id}`} className="text-[11px] font-semibold text-[#3B82F6] mb-1 ml-1 hover:underline">
                 {sender.name}
               </Link>
             )}
             <div className={cn(
               'rounded-2xl px-4 py-2.5 shadow-sm',
               isMe
-                ? 'bg-[#EDE0CB] text-[#2A1F14] rounded-br-sm'
-                : 'bg-white text-[#2A1F14] rounded-bl-sm',
+                ? 'bg-[#DBEAFE] text-[#1F2937] rounded-br-sm'
+                : 'bg-white text-[#1F2937] rounded-bl-sm',
             )}>
               <p className="text-sm leading-relaxed">{message.content}</p>
               <MetaRow viewCount={message.viewCount} timestamp={message.timestamp} sent={isMe} />
@@ -154,7 +154,7 @@ export default function MessageBubble({
 
           <div className={cn('flex flex-col min-w-0', isMe ? 'items-end' : 'items-start')}>
             {!isMe && sender && (
-              <Link href={`/user/${sender.id}`} className="text-[11px] font-semibold text-[#9B7653] mb-1 ml-1 hover:underline">
+              <Link href={`/user/${sender.id}`} className="text-[11px] font-semibold text-[#3B82F6] mb-1 ml-1 hover:underline">
                 {sender.name}
               </Link>
             )}
@@ -194,26 +194,26 @@ export default function MessageBubble({
 
         <div className={cn('flex flex-col min-w-0', isMe ? 'items-end' : 'items-start')}>
           {!isMe && sender && (
-            <Link href={`/user/${sender.id}`} className="text-[11px] font-semibold text-[#9B7653] mb-1 ml-1 hover:underline">
+            <Link href={`/user/${sender.id}`} className="text-[11px] font-semibold text-[#3B82F6] mb-1 ml-1 hover:underline">
               {sender.name}
             </Link>
           )}
           <div className={cn(
             'rounded-2xl px-3 py-2.5 shadow-sm flex items-center gap-3 min-w-[200px]',
-            isMe ? 'bg-[#EDE0CB] rounded-br-sm' : 'bg-white rounded-bl-sm',
+            isMe ? 'bg-[#DBEAFE] rounded-br-sm' : 'bg-white rounded-bl-sm',
           )}>
             <button className={cn(
               'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all',
-              isMe ? 'bg-[#7C5C3E]/20 hover:bg-[#7C5C3E]/30' : 'bg-[#7C5C3E] hover:bg-[#9B7653]',
+              isMe ? 'bg-[#2563EB]/20 hover:bg-[#2563EB]/30' : 'bg-[#2563EB] hover:bg-[#3B82F6]',
             )}>
               <Play className="w-4 h-4 text-white" fill="currentColor" />
             </button>
             <div className="flex items-center gap-[2px] flex-1">
               {WAVEFORM.map((h, i) => (
-                <div key={i} style={{ height: `${h * 2}px` }} className={cn('w-[2px] rounded-full', isMe ? 'bg-[#7C5C3E]/50' : 'bg-[#7C5C3E]/60')} />
+                <div key={i} style={{ height: `${h * 2}px` }} className={cn('w-[2px] rounded-full', isMe ? 'bg-[#2563EB]/50' : 'bg-[#2563EB]/60')} />
               ))}
             </div>
-            <span className={cn('text-[11px] font-medium flex-shrink-0', isMe ? 'text-[#9B7653]' : 'text-[#9A8474]')}>
+            <span className={cn('text-[11px] font-medium flex-shrink-0', isMe ? 'text-[#3B82F6]' : 'text-[#6B7280]')}>
               {message.content}
             </span>
           </div>

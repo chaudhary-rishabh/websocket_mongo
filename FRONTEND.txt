@@ -42,7 +42,7 @@ Middleware — route protection
 
 
 ────────────────────────────────────────────────────────────────────────────────
-2. NEXTAUTH v5 — AUTHENTICATION FLOW
+2. NEXTAUTH v5 — AUTHENTICATION FLOW (with proactive + reactive token refresh)
 ────────────────────────────────────────────────────────────────────────────────
 
 File: src/lib/auth.ts
@@ -55,59 +55,111 @@ STEP 1 — Type Augmentation
         user: { id, username, displayName, avatar?, bio?, role } & DefaultSession['user']
         accessToken: string
         refreshToken: string
+        accessTokenExpiry: number       // unix ms — from decodeJwtExpiry()
+        error?: 'RefreshAccessTokenError'
       }
       interface User { username, displayName, avatar?, bio?, role, accessToken, refreshToken }
     }
 
-    declare module '@auth/core/jwt' {     // v5-specific: NOT 'next-auth/jwt'
+    declare module '@auth/core/jwt' {   // v5-specific: NOT 'next-auth/jwt'
       interface JWT {
         accessToken, refreshToken, userId, username, displayName, avatar?, bio?, role
+        accessTokenExpiry: number
+        error?: 'RefreshAccessTokenError'
       }
     }
 
-STEP 2 — Credentials Provider
+STEP 2 — Helpers
+
+  decodeJwtExpiry(token: string): number
+    - Splits the JWT on '.' to extract the payload segment
+    - Base64url-decodes it: Buffer.from(segment, 'base64url').toString('utf8')
+    - JSON.parse → { exp: number }   (exp is seconds since epoch)
+    - Returns exp * 1000   (converts to milliseconds for Date.now() comparison)
+    — Used to read expiry from any RS256 JWT without a verify round-trip
+
+  refreshAccessToken(oldToken: JWT): Promise<JWT>
+    1. POST to backend /api/v1/auth/refresh with { refreshToken: oldToken.refreshToken }
+    2. On success: return { ...oldToken, accessToken, refreshToken,
+                             accessTokenExpiry: decodeJwtExpiry(accessToken), error: undefined }
+    3. On any error: return { ...oldToken, error: 'RefreshAccessTokenError' }
+    — Called by the jwt callback when the access token is within 60 seconds of expiry
+
+STEP 3 — Credentials Provider
   - authorize({ email, password }) runs server-side only (API_URL is never exposed)
   - POST to backend /api/v1/auth/login
   - Backend returns { user, accessToken, refreshToken }
   - authorize maps to NextAuth User and returns it; returns null on failure
 
-STEP 3 — JWT Callback
-  jwt({ token, user }) {
+STEP 4 — JWT Callback (async, proactive refresh)
+  async jwt({ token, user, trigger, session: sessionData }) {
+
+    // Branch A: client-side token sync after doRefresh() calls update()
+    if (trigger === 'update' && sessionData) {
+      const update = sessionData as { accessToken?: string; refreshToken?: string }
+      if (update.accessToken) {
+        token.accessToken = update.accessToken
+        token.refreshToken = update.refreshToken ?? token.refreshToken
+        token.accessTokenExpiry = decodeJwtExpiry(update.accessToken)
+        token.error = undefined
+      }
+      return token
+    }
+
+    // Branch B: first sign-in — copy everything from the User object
     if (user) {
-      // Fires only on initial sign-in; copies all fields into the JWT cookie
       token.accessToken = user.accessToken
       token.refreshToken = user.refreshToken
+      token.accessTokenExpiry = decodeJwtExpiry(user.accessToken)
       token.userId = user.id
       token.username = user.username
-      token.displayName = user.displayName
       ...
+      return token
     }
-    return token
+
+    // Migration: decode expiry for tokens that pre-date the accessTokenExpiry field
+    if (!token.accessTokenExpiry && token.accessToken) {
+      token.accessTokenExpiry = decodeJwtExpiry(token.accessToken)
+    }
+
+    // Branch C: token still valid — return as-is (60-second buffer)
+    if (token.accessTokenExpiry && Date.now() < token.accessTokenExpiry - 60_000) {
+      return token
+    }
+
+    // Branch D: token expired or within 60s of expiry — proactively refresh
+    return refreshAccessToken(token)
   }
 
-STEP 4 — Session Callback
+  — Fires on every session read: middleware auth(), server component auth(), useSession().
+  — Each call checks expiry and silently rotates the token pair before the caller sees it.
+  — The 60-second buffer prevents a race where a token returned as "valid" expires
+    during the in-flight API call.
+
+STEP 5 — Session Callback
   session({ session, token }) {
-    // Fires on every useSession() and auth() call
-    // Projects JWT fields onto the session for client consumption
     session.accessToken = token.accessToken
+    session.accessTokenExpiry = token.accessTokenExpiry
+    session.error = token.error
     session.user.id = token.userId
     session.user.username = token.username
     ...
     return session
   }
+  — Also exposes session.error so WSProvider can detect RefreshAccessTokenError and sign out.
 
-STEP 5 — Session Storage
+STEP 6 — Session Storage
   strategy: 'jwt'
-  - No database. Token stored in encrypted, httpOnly, secure cookie
+  - No database. Token pair stored in encrypted, httpOnly, secure cookie
   - Encrypted with AUTH_SECRET
-  - No automatic token refresh is wired — access token stays valid for its lifetime
+  - Proactive refresh (server-side) + reactive 401 retry (client-side, in api.ts)
 
-STEP 6 — Signup Flow
+STEP 7 — Signup Flow
   - Signup page POSTs to backend /api/v1/auth/register directly via api.post()
   - On success → signIn('credentials', { email, password }) → triggers authorize()
   - User lands on /chat immediately after registration
 
-STEP 7 — Logout (Server Action)
+STEP 8 — Logout (Server Action)
   File: src/app/actions/auth.ts
     export async function logoutAction() {
       const session = await auth()
@@ -127,35 +179,72 @@ SessionProvider
   src/components/ui/providers.tsx — 'use client' wrapper around NextAuth SessionProvider
   Placed in root layout.tsx so useSession() works in all client components
 
+Token Lifecycle Summary
+  Login     → accessToken (15 min RS256) + refreshToken (7 d RS256)
+               stored in NextAuth JWT cookie (httpOnly, encrypted)
+  Every session read
+             → jwt callback checks expiry with 60 s buffer
+               expired → POST /refresh (rotates both tokens)
+  API call  → 401 → client-side doRefresh() → retry → update() syncs cookie
+  Logout    → POST /logout (revokes refreshToken in DB) + signOut()
+
 
 ────────────────────────────────────────────────────────────────────────────────
-3. API CLIENT
+3. API CLIENT — TOKEN STORE + 401 RETRY
 ────────────────────────────────────────────────────────────────────────────────
 
 File: src/lib/api.ts
 
-  async function apiFetch<T>(path, init, token?): Promise<T> {
-    const headers = {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    }
-    const res = await fetch(`${BASE}/api/v1${path}`, { ...init, headers })
-    const json = await res.json()
-    if (!res.ok || !json.success)
-      throw new Error(json?.error?.message ?? 'Request failed')
-    return json.data as T
+MODULE-LEVEL TOKEN STORE
+  interface TokenStore {
+    accessToken:  string
+    refreshToken: string
+    onRefreshed:  (tokens: { accessToken: string; refreshToken: string }) => Promise<void>
   }
+  let _store: TokenStore | null = null
+  let _refreshing: Promise<string> | null = null   // single-flight guard
+
+  setAuth(store: TokenStore)   — called by WSProvider after session is available
+  clearAuth()                  — called by WSProvider on unmount / disconnect
+
+SINGLE-FLIGHT REFRESH (doRefresh)
+  async function doRefresh(): Promise<string>
+  - If _refreshing is already set, return it directly (all concurrent 401s share one refresh)
+  - _refreshing = (async () => {
+      POST /api/v1/auth/refresh { refreshToken: _store.refreshToken }
+      _store.accessToken = newAccessToken
+      _store.refreshToken = newRefreshToken
+      await _store.onRefreshed({ accessToken, refreshToken })  // syncs NextAuth cookie
+      return newAccessToken
+    })().finally(() => { _refreshing = null })
+  — Prevents token rotation race: if 3 requests get 401 simultaneously, only one refresh
+    call is made; the other two await the same promise and retry with the new token.
+
+authFetch(url, options, token?): Promise<Response>
+  1. Make the request with Bearer token (from param, or _store.accessToken)
+  2. If response.status === 401 and _store exists:
+       newToken = await doRefresh()
+       retry the request once with Bearer newToken
+  3. Return the Response object (caller calls .json() themselves)
+  — Used by ChatView and WSProvider for paginated + one-off requests
+
+apiFetch<T>(path, init, token?): Promise<T>   [internal, used by api.*]
+  1. Same 401-retry logic as authFetch
+  2. After retry, res.json() → if !res.ok or !json.success → throw error
+  3. Returns json.data as T
 
   export const api = {
-    get:   (path, token?) => apiFetch(path, { method: 'GET' }, token),
-    post:  (path, body, token?) => apiFetch(path, { method: 'POST', body: JSON.stringify(body) }, token),
-    patch: (path, body, token?) => apiFetch(path, { method: 'PATCH', body: JSON.stringify(body) }, token),
+    get:    (path, token?) => apiFetch(path, { method: 'GET' }, token),
+    post:   (path, body, token?) => apiFetch(path, { method: 'POST', body: JSON.stringify(body) }, token),
+    patch:  (path, body, token?) => apiFetch(path, { method: 'PATCH', body: JSON.stringify(body) }, token),
+    delete: (path, token?) => apiFetch(path, { method: 'DELETE' }, token),
   }
 
 Key conventions:
   - All backend responses are { success, data, error? } — apiFetch unwraps data
   - Throws on non-ok or success:false — callers use try/catch
-  - token passed explicitly per call
+  - token passed explicitly per call for server components; WSProvider registers
+    _store for client-side auto-refresh via setAuth()
   - SSE endpoints (AI streaming) bypass api.ts — use raw fetch() to get the
     streaming body before JSON parsing
 
@@ -217,6 +306,17 @@ CONVERSATIONS LIST
   setRealConversations(convs)
     - Set once on mount by WSProvider (from GET /conversations)
     - Updated locally by GroupMembersModal on add/remove/leave
+
+MESSAGE PAGINATION
+  messagePagination: Record<string, { nextCursor?: string; hasMore: boolean }>
+    Keyed by conversationId. Populated by ChatView after each page fetch.
+
+  setMessagePagination(convId, info: { nextCursor?, hasMore })
+    - Merges the new info under the conversationId key
+    - Used by ChatView on initial load and on every loadMore() call
+    - hasMore === false means the beginning of the conversation has been reached
+    - nextCursor is the _id of the oldest message in the last fetched page;
+      passed as ?cursor= to load the next (older) page
 
 
 ────────────────────────────────────────────────────────────────────────────────
@@ -296,16 +396,35 @@ on(handler): () => void
 WSProvider (src/components/chat/WSProvider.tsx)
   - 'use client', renders null
   - Mounted inside ChatLayout so it lives for the entire /chat session
-  - Effect 1: on session.accessToken → fetch /conversations → setRealConversations
-  - Effect 2: on session.accessToken → wsClient.connect(token)
-      Subscribes with wsClient.on(handler):
-        NEW_MESSAGE   → replaceTempMessage or appendMessage to Zustand
-        TYPING        → setTyping(convId, userId, username, true)
-        STOP_TYPING   → setTyping(convId, userId, '', false)
-        USER_ONLINE   → setUserOnline(userId)
-        USER_OFFLINE  → setUserOffline(userId)
-        CONNECTED     → setWsConnected(true)
-      Cleanup: off() + wsClient.disconnect() + setWsConnected(false)
+  - Uses: const { data: session, update } = useSession()
+
+  Effect 1: on session.accessToken → register token store + handle refresh error
+    setAuth({
+      accessToken:  session.accessToken,
+      refreshToken: session.refreshToken,
+      onRefreshed:  async (tokens) => { await update(tokens) }
+        — update() is NextAuth's trigger:'update' path, which stores new tokens
+          into the encrypted cookie via the jwt callback Branch A
+    })
+    if session.error === 'RefreshAccessTokenError':
+      signOut({ callbackUrl: '/login' })  — refresh token expired; force re-login
+    Cleanup: clearAuth()
+
+  Effect 2: on session.accessToken → fetch conversations
+    authFetch(`${API}/api/v1/conversations`, {}, session.accessToken)
+    → setRealConversations(json.data)
+
+  Effect 3: on session.accessToken → wsClient.connect(token)
+    Subscribes with wsClient.on(handler):
+      NEW_MESSAGE    → replaceTempMessage (if tempId) else appendMessage to Zustand
+      TYPING         → setTyping(convId, userId, username, true)
+      STOP_TYPING    → setTyping(convId, userId, '', false)
+      USER_ONLINE    → setUserOnline(userId)
+      USER_OFFLINE   → setUserOffline(userId)
+      CONNECTED      → setWsConnected(true)
+      MESSAGES_READ  → markMessagesRead(convId, userId, readAt) in Zustand
+      REACTION_UPDATED → replaceTempMessage with the full updated message object
+    Cleanup: off() + wsClient.disconnect() + setWsConnected(false)
 
 
 ────────────────────────────────────────────────────────────────────────────────
@@ -348,11 +467,14 @@ Chat page (src/app/chat/[id]/page.tsx)
 File: src/components/chat/ChatView.tsx
 
 On mount (useEffect):
-  1. GET /api/v1/conversations/:id → full conversation + populated members
-  2. GET /api/v1/conversations/:id/messages → initial history
-  3. Build PopulatedMember[] from apiConversation.members
-  4. prependMessages(convId, messages) into Zustand store
-  5. wsClient.send({ type: 'JOIN_CONVERSATION', conversationId: id })
+  1. authFetch GET /api/v1/conversations/:id/messages?limit=30 → initial page
+     prependMessages(convId, items) + setMessagePagination(convId, { hasMore, nextCursor })
+  2. authFetch GET /api/v1/conversations/:id → full conversation + populated members
+     (skipped if already in realConversations cache)
+  3. wsClient.send({ type: 'JOIN_CONVERSATION', conversationId: id })
+  4. wsClient.send({ type: 'MARK_READ', conversationId: id })
+     — Marks all existing messages read on enter
+  Both fetches use authFetch (with 401 retry) instead of raw fetch.
 
 Floating header:
   - position: absolute, top-0, z-10 on a div wrapping a header.header-glass
@@ -362,7 +484,7 @@ Floating header:
 Sending a message (optimistic flow):
   Step 1: Generate tempId = crypto.randomUUID()
   Step 2: Build optimistic ApiMessage:
-    { _id: tempId, tempId, isPending: true, senderId: current user object,
+    { _id: tempId, tempId, isPending: true, senderId: current user id,
       content, type: 'text', conversationId, createdAt: now, reactions: [], readBy: [] }
   Step 3: appendMessage(convId, optimisticMsg) → shown immediately in UI
   Step 4: wsClient.send({ type: 'SEND_MESSAGE', conversationId, tempId, content, messageType })
@@ -370,10 +492,81 @@ Sending a message (optimistic flow):
   Step 6: WSProvider receives NEW_MESSAGE → replaceTempMessage(convId, tempId, confirmedMsg)
   Step 7: Optimistic bubble swapped for server-confirmed message seamlessly
 
+Auto-read on new messages:
+  A useEffect watches realtimeMessages[convId].length:
+  When count changes and isReal → wsClient.send({ type: 'MARK_READ', conversationId })
+  — Keeps read receipts up-to-date as messages arrive in real time
+
 Typing indicator:
   - MessageInput tracks keydown: debounce TYPING_START → 300ms idle → TYPING_STOP
   - wsClient.send({ type: 'TYPING_START', conversationId }) / TYPING_STOP
   - ChatView reads typingUsers[convId] from store → displays animated dot indicator
+
+CURSOR-BASED MESSAGE PAGINATION (loadMore)
+
+  loadMore() — useCallback, called by MessageList's IntersectionObserver
+    Guards: pagination.hasMore, pagination.nextCursor, !isLoadingMore, session.accessToken
+    1. setIsLoadingMore(true)
+    2. authFetch GET /conversations/:id/messages?cursor=<nextCursor>&limit=30
+    3. prependMessages(convId, items) — inserts older messages at front of array
+    4. setMessagePagination(convId, { hasMore, nextCursor })
+    5. setIsLoadingMore(false)   (in .finally())
+
+  Passed to MessageList as:
+    hasMore={pagination?.hasMore ?? false}
+    isLoadingMore={isLoadingMore}
+    onLoadMore={loadMore}
+
+
+────────────────────────────────────────────────────────────────────────────────
+8a. MESSAGE LIST — SCROLL & PAGINATION
+────────────────────────────────────────────────────────────────────────────────
+
+File: src/components/chat/MessageList.tsx
+
+Refs:
+  containerRef      — the scrollable div
+  topSentinelRef    — zero-height div at the very top (watched by IntersectionObserver)
+  bottomRef         — zero-height div at the very bottom (scrollIntoView target)
+  isLoadingMoreRef  — mirrors isLoadingMore prop (stable ref for observer closure)
+  hasMoreRef        — mirrors hasMore prop
+  onLoadMoreRef     — mirrors onLoadMore prop
+  scrollHeightBeforeRef — snapshot of container.scrollHeight taken just before loadMore()
+  prevFirstMsgIdRef — _id of realtimeMessages[0]; changes only when messages are prepended
+  isNearBottomRef   — true if user is within 120 px of the bottom
+
+IntersectionObserver (set up once in useEffect([], []))
+  - Observes topSentinelRef with { root: containerRef.current, threshold: 0 }
+  - When sentinel enters the viewport (user scrolled to top):
+      if !isLoadingMoreRef.current && hasMoreRef.current && onLoadMoreRef.current:
+        scrollHeightBeforeRef.current = container.scrollHeight  // snapshot before re-render
+        onLoadMoreRef.current()   // triggers ChatView.loadMore()
+  - root: containerRef.current means intersection is measured relative to the scroll
+    container, not the browser viewport — critical for correct detection inside a flex layout
+
+useLayoutEffect([realtimeMessages]) — zero-jump scroll restoration
+  - Reads firstId = realtimeMessages[0]?._id
+  - If firstId changed from prevFirstMsgIdRef.current (a prepend happened, not an append)
+    AND scrollHeightBeforeRef.current > 0:
+      container.scrollTop = container.scrollHeight - scrollHeightBeforeRef.current
+      scrollHeightBeforeRef.current = 0
+  - Fires synchronously after DOM paint — the browser never sees the jump
+  - The delta (newScrollHeight - prevScrollHeight) is exactly the height of the prepended
+    messages; adding it to scrollTop keeps the viewport anchored to the same message
+
+Auto-scroll-to-bottom (useEffect on [mockMessages, realtimeMessages, typingUsernames])
+  - Only fires if isNearBottomRef.current is true (user was within 120 px of bottom)
+  - bottomRef.current.scrollIntoView({ behavior: 'smooth' })
+  - Loading older messages at the top never triggers this (user scrolled away from bottom)
+
+handleScroll — updates isNearBottomRef
+  el.scrollHeight - el.scrollTop - el.clientHeight < 120 → true
+
+UI elements:
+  - Loading spinner (Loader2) shown when isLoadingMore
+  - "Beginning of conversation" text shown when !hasMore && messages.length > 0
+  - Top sentinel div → IntersectionObserver target
+  - Bottom ref div → auto-scroll target
 
 
 ────────────────────────────────────────────────────────────────────────────────
@@ -421,23 +614,45 @@ Local state:
   historyLoaded: boolean
   analyzeOpen: boolean      — bottom sheet visibility
 
-ON MOUNT — load persisted history:
-  useEffect fires when session.accessToken available and historyLoaded is false
-  GET /api/v1/ai/messages?limit=100
-  Map: { _id, role, content } → { id: _id, role, content }
-  setMessages(mapped)  →  setHistoryLoaded(true)
+Local state:
+  sessions: AiSession[]        { _id, title, messageCount, lastActivityAt }
+  activeSessionId: string | null
+  messages: AiMessage[]        { id, role, content, streaming?, error? }
+  isStreaming: boolean
+  historyLoaded: boolean
+  analyzeOpen: boolean          — bottom sheet visibility
+
+ON MOUNT — load sessions + history:
+  Step 1: GET /api/v1/ai/sessions → setSessions(data.sessions)
+          Pick activeSessionId = sessions[0]?._id (most recent)
+  Step 2: GET /api/v1/ai/messages?sessionId=<activeSessionId>&limit=100
+          Map: { _id, role, content } → { id: _id, role, content }
+          setMessages(mapped) → setHistoryLoaded(true)
   Shows skeleton (3 alternating pulse rows) while loading
   Empty state only shown after historyLoaded=true and messages.length===0
+
+NEW CHAT:
+  handleNewChat()
+  POST /api/v1/ai/sessions → creates a new session
+  setSessions([newSession, ...sessions])
+  setActiveSessionId(newSession._id)
+  setMessages([])  — clear the message panel
 
 SEND CHAT:
   handleSend(content)
   - Builds history = messages.map(m => ({ role, content }))
-  - runStream(content, () => POST /api/v1/ai/chat { messages: [...history, newUserMsg] })
+  - runStream(content, () => POST /api/v1/ai/chat {
+      messages: [...history, newUserMsg],
+      sessionId: activeSessionId
+    })
 
 ANALYZE USER:
   handleAnalyze(userId, displayName)
   - label = 'Analyse my own behaviour & emotions' or 'Analyse ${name}s messages'
-  - runStream(label, () => POST /api/v1/ai/analyze-user { userId })
+  - runStream(label, () => POST /api/v1/ai/analyze-user {
+      userId,
+      sessionId: activeSessionId
+    })
 
 runStream(userLabel, fetchFn):
   1. Adds user bubble to messages array (immediate)

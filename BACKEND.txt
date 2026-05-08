@@ -371,11 +371,14 @@ Service functions:
     — Bulk-marks all unread messages in the conversation as read
 
 HTTP Routes (nested under /conversations/:conversationId/messages):
-  GET  /     → listMessages (cursor: ?cursor=<msgId>&limit=50)
-  PATCH /:id → editMessage
-  DELETE /:id → deleteMessage
+  GET  /            → listMessages (cursor: ?cursor=<msgId>&limit=30)
+  POST /            → sendMessage (HTTP path — same service as WS SEND_MESSAGE)
+  POST /read        → markRead (HTTP path — same service as WS MARK_READ)
+  PATCH /:id        → editMessage
+  DELETE /:id       → deleteMessage
+  POST /:id/reactions → addReaction (HTTP path — same service as WS ADD_REACTION)
 
-WebSocket Routes (no HTTP equivalents):
+WebSocket Routes (real-time equivalents):
   SEND_MESSAGE  → sendMessage service → broadcast NEW_MESSAGE to room
   ADD_REACTION  → addReaction service → broadcast REACTION_UPDATED to room
   MARK_READ     → markRead service → broadcast MESSAGES_READ to room
@@ -538,22 +541,36 @@ AuthenticatedSocket type extends WebSocket:
 Files: ai.session.model.ts, ai.message.model.ts, ai.routes.ts
 
 All routes: router.use(authenticate())
+AI features return 503 if DEEPSEEK_API_KEY is not set (checked once at route registration).
+
+Architecture: MULTI-SESSION
+  Each user can have multiple named AI chat sessions ("New Chat" creates a new one).
+  AiSession.userId is NOT unique — one user can have N sessions.
+  Sessions are identified by their _id and scoped to the userId on every query.
 
 ──────────────────────────────────────
 Helper functions
 ──────────────────────────────────────
 
-getOrCreateSession(userId: string)
-  AiSession.findOne({ userId })
-  If none → AiSession.create({ userId, messageCount: 0, lastActivityAt: new Date() })
-  Returns the session document
-
 persist(sessionId, userId, role, content, type, metadata?)
-  AiMessage.create({ sessionId, userId, role, content, type, metadata })
-  AiSession.findByIdAndUpdate(sessionId, {
-    $inc: { messageCount: 1 },
-    lastActivityAt: new Date()
-  })
+  1. AiMessage.create({ sessionId, userId, role, content, type, metadata })
+  2. AiSession.findByIdAndUpdate(sessionId, {
+       $inc: { messageCount: 1 },
+       lastActivityAt: new Date()
+     })
+  3. Auto-title: if role === 'user' and session has no title yet:
+       AiSession.updateOne(
+         { _id: sessionId, title: { $exists: false } },
+         { $set: { title: content.slice(0, 75).trim() } }
+       )
+  — First user message in a session sets the session's display title (max 75 chars).
+  — Subsequent messages do not overwrite the title ($exists: false guard).
+
+handleUpstreamError(upstream: globalThis.Response, res: Express.Response)
+  - Reads upstream response body as text
+  - Writes `data: ${JSON.stringify({ error: body })}\n\n` to SSE response
+  - Ends the response
+  — Called when DeepSeek returns a non-200 status
 
 pipeStream(upstream: globalThis.Response, res: Express.Response, onDone: (text) => Promise<void>)
   - Reads the DeepSeek SSE stream chunk by chunk using body.getReader()
@@ -563,33 +580,64 @@ pipeStream(upstream: globalThis.Response, res: Express.Response, onDone: (text) 
       Skip '[DONE]'
       Parse JSON { choices: [{ delta: { content? } }] }
       Forward: res.write(`data: ${JSON.stringify({ content })}\n\n`)
-      Accumulate in accumulated string
-  - client disconnect detection via req.once('close', ...) — sets clientGone=true
-  - Even if client disconnects mid-stream, accumulated persisted via onDone(accumulated)
+      Accumulate in 'accumulated' string
+  - Client disconnect detection:
+      req.once('close', () => { clientGone = true })
+      After stream ends: if clientGone, skip forwarding but still call onDone(accumulated)
+  — Even if client disconnects mid-stream, the full response is persisted via onDone.
+
+──────────────────────────────────────
+Session CRUD routes
+──────────────────────────────────────
+
+GET /api/v1/ai/sessions
+  AiSession.find({ userId }).sort({ lastActivityAt: -1 }).lean()
+  Response: { sessions: [{ _id, title, messageCount, lastActivityAt, createdAt }] }
+
+POST /api/v1/ai/sessions
+  AiSession.create({ userId, messageCount: 0, lastActivityAt: new Date() })
+  Response: { session }
+  — Frontend calls this when user clicks "New Chat"
+
+DELETE /api/v1/ai/sessions
+  1. AiSession.find({ userId }) → collect sessionIds
+  2. AiMessage.deleteMany({ sessionId: { $in: sessionIds } })
+  3. AiSession.deleteMany({ userId })
+  Response: 204 No Content
+  — Wipes all AI history for the user
+
+DELETE /api/v1/ai/sessions/:sessionId
+  1. AiSession.findOne({ _id: sessionId, userId }) — ownership check
+  2. AiMessage.deleteMany({ sessionId })
+  3. AiSession.findByIdAndDelete(sessionId)
+  Response: 204 No Content
 
 ──────────────────────────────────────
 GET /api/v1/ai/messages
 ──────────────────────────────────────
 
-  Cursor-based pagination:
-    session = AiSession.findOne({ userId }).lean()
-    filter = { sessionId: session._id }
-    if query.before → filter._id = { $lt: before }
-    messages = AiMessage.find(filter).sort({ createdAt: 1 }).limit(limit + 1).lean()
-    hasMore = messages.length > limit
-    if hasMore → messages.pop()
-
+  Query params: sessionId (required), limit (default 50), before (cursor)
+  1. AiSession.findOne({ _id: sessionId, userId }) — ownership check + session must exist
+  2. filter = { sessionId }
+     if query.before → filter._id = { $lt: before }
+  3. AiMessage.find(filter).sort({ createdAt: 1 }).limit(limit + 1).lean()
+  4. hasMore = messages.length > limit
+     if hasMore → messages.pop()
   Response: { messages, hasMore }
 
 ──────────────────────────────────────
 POST /api/v1/ai/chat
 ──────────────────────────────────────
 
-  Body: { messages: { role, content }[] }
+  Body: { messages: { role, content }[], sessionId?: string }
   Last message must have role: 'user'
 
-  1. getOrCreateSession(userId)
+  1. Resolve session:
+       if sessionId provided → AiSession.findOne({ _id: sessionId, userId })
+       else → AiSession.findOne({ userId }).sort({ lastActivityAt: -1 })  (most recent)
+       If still none → AiSession.create({ userId })
   2. persist(session._id, userId, 'user', newUserMessage.content, 'chat')
+     — persist() also auto-titles the session from this first user message
   3. Set SSE headers: Content-Type: text/event-stream, Cache-Control: no-cache,
      Connection: keep-alive, X-Accel-Buffering: no
   4. res.flushHeaders()
@@ -597,9 +645,10 @@ POST /api/v1/ai/chat
        body: { model:'deepseek-chat', messages:[systemPrompt, ...messages],
                stream:true, max_tokens:2048, temperature:0.7 }
      })
-  6. pipeStream(upstream, res, async (accumulated) => {
-       persist(session._id, userId, 'assistant', accumulated, 'chat', { model:'deepseek-chat' })
-     })
+  6. if upstream.ok → pipeStream(upstream, res, async (accumulated) => {
+         persist(session._id, userId, 'assistant', accumulated, 'chat', { model:'deepseek-chat' })
+       })
+     else → handleUpstreamError(upstream, res)
 
   System prompt: helpful assistant, markdown formatting, concise
 
@@ -607,29 +656,32 @@ POST /api/v1/ai/chat
 POST /api/v1/ai/analyze-user
 ──────────────────────────────────────
 
-  Body: { userId?: string; userLabel?: string }
+  Body: { userId?: string; userLabel?: string; sessionId?: string }
   userId = 'me' or omitted → self-analysis
   userId = real MongoDB ObjectId → analyze another user
 
-  1. Resolve target: User.findById(targetId).lean()
-  2. Find conversations: isSelf → { members: targetId } else { members: { $all:[sub,targetId] } }
-  3. Fetch up to 500 text messages across those conversations:
+  1. Resolve session (same logic as /chat — sessionId, most-recent, or create new)
+  2. Resolve target: User.findById(targetId).lean()
+  3. Find conversations: isSelf → { members: targetId } else { members: { $all:[sub,targetId] } }
+  4. Fetch up to 500 text messages across those conversations:
        Message.find({ conversationId:{ $in:convIds }, type:'text',
                       deletedFor:{ $nin:[targetId] } })
          .populate('senderId','displayName').sort({ createdAt:1 }).limit(500)
-  4. Format messages grouped by conversation:
+  5. Format messages grouped by conversation:
        === Direct Message ===
        12 May [Alice]: Hello there
        12 May [Bob]: Hey!
        ...
-  5. Build userPrompt:
+  6. Build userPrompt:
        isSelf: 'Please analyse ME (name) based on my chat history below.\n\n<block>'
        other:  'Please analyse name based on their chat history below.\n\n<block>'
-  6. Persist user-turn label: persist(session._id, userId, 'user', requestLabel, 'analysis')
-  7. SSE headers + flushHeaders
-  8. fetch DeepSeek with ANALYSIS_SYSTEM_PROMPT + userPrompt, stream:true, temperature:0.6
-  9. pipeStream → persist assistant response with metadata:
-       { model:'deepseek-chat', analyzedUserId:targetId, analyzedUserName:targetName }
+  7. persist(session._id, userId, 'user', requestLabel, 'analysis')
+     — persist() auto-titles the session from this request label if no title yet
+  8. SSE headers + flushHeaders
+  9. fetch DeepSeek with ANALYSIS_SYSTEM_PROMPT + userPrompt, stream:true, temperature:0.6
+  10. if upstream.ok → pipeStream → persist assistant response with metadata:
+        { model:'deepseek-chat', analyzedUserId:targetId, analyzedUserName:targetName }
+      else → handleUpstreamError(upstream, res)
 
 ANALYSIS_SYSTEM_PROMPT (static, injected server-side):
   6-section structure:

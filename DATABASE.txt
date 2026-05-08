@@ -239,14 +239,15 @@ SOFT DELETE vs HARD DELETE
     { deletedFor: { $ne: userId } }        — $ne on an array checks "not in array"
 
 CURSOR-BASED PAGINATION
-  GET /messages?cursor=<messageId>&limit=50
+  GET /messages?cursor=<messageId>&limit=30    (default limit: 30, max: 100)
 
   filter._id = { $lt: new mongoose.Types.ObjectId(cursor) }
   — ObjectId encodes creation time, so $lt gives "older than this message"
   Sort: { _id: -1 } (newest first), then reverse the results before returning
   — Client receives chronological order; fetching more scrolls backward in time
-  hasMore = fetched.length === limit (fetched one extra to probe)
+  hasMore = fetched.length === limit   (exact match — no +1 probe needed)
   nextCursor = String(messages[0]._id)  — the oldest message in this page
+  Response envelope: { items, hasMore, nextCursor? }
 
 POPULATE PATTERN
   senderId populated with: 'username displayName avatar'
@@ -270,29 +271,45 @@ File: src/modules/ai/ai.session.model.ts
 Mongoose model name: 'AiSession'
 
 SCHEMA
-  userId:         ObjectId ref:'User', required, unique:true, index:true
-                  — One session per user — the unique constraint enforces this at DB level
+  userId:         ObjectId ref:'User', required, index:true
+                  — One user can have MANY sessions (not unique).
+                  — userId is indexed for fast "find all sessions for user" queries.
+                  — NOTE: if migrating from the old single-session schema, drop the
+                    stale unique index: db.aisessions.dropIndex("userId_1")
+
+  title:          String, optional, maxlength:80
+                  — Auto-set by persist() from the first user message in the session
+                    (content.slice(0, 75).trim()). Never overwritten after that.
+                  — Used as the session display name in the session list sidebar.
 
   messageCount:   Number, default:0
                   — Total number of AI turns (user + assistant combined)
                   — Incremented by $inc on every persist() call
 
   lastActivityAt: Date, default:Date.now
-                  — Updated on every message persist; useful for analytics / cleanup
+                  — Updated on every message persist; used to sort sessions newest-first
 
 TIMESTAMPS
   { timestamps: true }  — adds createdAt and updatedAt
 
 PURPOSE
-  AiSession is the root anchor for a user's AI conversation thread.
-  All AiMessage documents for a user point back to their single AiSession via sessionId.
-  Design choice: one session per user (no multiple AI threads) keeps the UX simple —
-  there is one continuous AI timeline per user, like a persistent AI inbox.
+  AiSession is the root anchor for a named AI chat thread.
+  Each session has its own message history and title.
+  Users can create new sessions ("New Chat"), switch between sessions, and delete
+  individual sessions or all sessions at once.
 
 QUERY PATTERNS
-  Get or create session:
-    AiSession.findOne({ userId })
-    If null → AiSession.create({ userId, messageCount:0, lastActivityAt:new Date() })
+  List sessions:
+    AiSession.find({ userId }).sort({ lastActivityAt: -1 }).lean()
+
+  Create session:
+    AiSession.create({ userId, messageCount: 0, lastActivityAt: new Date() })
+
+  Auto-title (first message only):
+    AiSession.updateOne(
+      { _id: sessionId, title: { $exists: false } },
+      { $set: { title: content.slice(0, 75).trim() } }
+    )
 
   Update on message:
     AiSession.findByIdAndUpdate(sessionId, {
@@ -300,8 +317,17 @@ QUERY PATTERNS
       lastActivityAt: new Date()
     })
 
+  Delete one session:
+    AiMessage.deleteMany({ sessionId })
+    AiSession.findByIdAndDelete(sessionId)
+
+  Delete all sessions for user:
+    sessionIds = (await AiSession.find({ userId })).map(s => s._id)
+    AiMessage.deleteMany({ sessionId: { $in: sessionIds } })
+    AiSession.deleteMany({ userId })
+
 RELATIONSHIPS
-  - userId → User (one-to-one: each user has at most one AiSession)
+  - userId → User (many-to-one: one user can have N AiSessions)
   - Referenced by: AiMessage.sessionId (one-to-many: session has many messages)
 
 
@@ -396,7 +422,7 @@ RELATIONSHIPS
   messages (1) ───────────────── (1) messages  [self-referential]
                                       via messages.replyTo
 
-  users (1) ──────────────────── (1) aisessions   [unique constraint]
+  users (1) ──────────────────── (N) aisessions   [one user, many sessions]
                                       via aisessions.userId
 
   aisessions (1) ─────────────── (N) aimessages
@@ -422,7 +448,7 @@ conversations  { members: 1 }                  regular     find all convs for a 
 conversations  { updatedAt: -1 }               regular     sort sidebar by recent activity
 messages       { conversationId: 1 }           regular     single-field (covered by compound)
 messages       { conversationId:1, createdAt:-1 } compound primary message pagination query
-aisessions     { userId: 1 }                   unique      one-session-per-user guarantee
+aisessions     { userId: 1 }                   regular     find all sessions for a user
 aimessages     { sessionId: 1 }                regular     query by session (covered by compound)
 aimessages     { userId: 1 }                   regular     direct per-user message query
 aimessages     { sessionId:1, createdAt:1 }    compound   primary AI history pagination query
@@ -467,8 +493,17 @@ AI COLLECTION ISOLATION
   - The AI routes read from conversations/messages for analysis input — this is a
     read-only dependency; no writes cross the boundary
 
-ONE AI SESSION PER USER
-  - userId has unique:true on AiSession
-  - getOrCreateSession uses findOne + create (not findOneAndUpsert) to avoid race conditions
-    in a single-server setup; for multi-instance, a unique index ensures at most one wins
-  - Simpler UX: users have one continuous AI timeline, not multiple named threads
+MULTI-SESSION AI ARCHITECTURE
+  - userId on AiSession is NOT unique — one user can have many sessions (like chat threads)
+  - "New Chat" creates a new AiSession document via POST /ai/sessions
+  - Sessions are sorted by lastActivityAt descending; most recent is shown first
+  - Session title is auto-populated from the first user message (slice 0-75) so users
+    don't have to name sessions manually — the conversation names itself
+  - The title write uses { $exists: false } as a guard so subsequent messages in the
+    same session never overwrite the title set from the first message
+  - Why the change: a single-timeline AI is limiting — users want separate contexts
+    for different topics (coding help vs. personal analysis vs. general Q&A) without
+    the history of one polluting the other
+  - Delete granularity: DELETE /sessions/:id deletes one thread; DELETE /sessions wipes all
+  - Old unique index (userId_1 on aisessions) must be dropped on migration:
+      db.aisessions.dropIndex("userId_1")

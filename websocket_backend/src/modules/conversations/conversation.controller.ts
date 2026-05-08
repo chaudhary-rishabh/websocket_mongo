@@ -7,6 +7,7 @@ import {
   getConversation,
   updateConversation,
   addMembers,
+  removeMember,
   leaveConversation,
 } from './conversation.service.js'
 import type { AuthRequest } from '../../shared/types/index.js'
@@ -48,6 +49,12 @@ export const addMembersHandler = asyncHandler(async (req: Request, res: Response
   const { sub } = (req as AuthRequest).user
   const conv = await addMembers(req.params['conversationId'] as string, sub, req.body as AddMembersInput)
   sendSuccess(res, conv)
+})
+
+export const removeMemberHandler = asyncHandler(async (req: Request, res: Response) => {
+  const { sub } = (req as AuthRequest).user
+  await removeMember(req.params['conversationId'] as string, sub, req.params['memberId'] as string)
+  sendSuccess(res, null, { message: 'Member removed' })
 })
 
 export const leave = asyncHandler(async (req: Request, res: Response) => {

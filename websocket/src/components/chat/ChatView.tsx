@@ -7,7 +7,7 @@ import { useSession } from 'next-auth/react'
 import { getConversationById, getMessages } from '@/lib/mock-data'
 import { useChatStore } from '@/lib/store'
 import { wsClient } from '@/lib/ws-client'
-import type { ApiConversation, ApiMessage } from '@/lib/chat-types'
+import type { ApiConversation, ApiMessage, PopulatedMember } from '@/lib/chat-types'
 import ChatHeader from './ChatHeader'
 import MessageList from './MessageList'
 import MessageInput from './MessageInput'
@@ -173,6 +173,20 @@ export default function ChatView({ conversationId }: ChatViewProps) {
     }
   }
 
+  // Build populated member details for GroupMembersModal
+  const memberDetails: PopulatedMember[] | undefined =
+    isReal && apiConversation && Array.isArray(apiConversation.members)
+      ? apiConversation.members.map((p) => ({
+          id: p._id,
+          name: p.displayName,
+          avatar: p.avatar,
+          initials: p.displayName.slice(0, 2).toUpperCase(),
+          isOnline: p.isOnline,
+          isAdmin: (apiConversation.admins ?? []).some((a) => a.toString() === p._id),
+          isMe: p._id === session?.user?.id,
+        }))
+      : undefined
+
   // Real messages from store; mock messages from mock-data
   const realtimeMsgs = realtimeMessages[conversationId] ?? []
   const mockMessages = !isReal ? getMessages(conversationId).filter((m) => !deletedIds.has(m.id)) : []
@@ -203,6 +217,8 @@ export default function ChatView({ conversationId }: ChatViewProps) {
             onEnterSelectMode={() => setIsSelectMode(true)}
             onExitSelectMode={cancelSelect}
             onDeleteSelected={handleDelete}
+            memberDetails={memberDetails}
+            myUserId={session?.user?.id}
           />
         </div>
       )}

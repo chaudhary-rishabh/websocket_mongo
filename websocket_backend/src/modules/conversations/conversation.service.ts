@@ -81,6 +81,19 @@ export async function addMembers(conversationId: string, userId: string, input: 
   return conv.save()
 }
 
+export async function removeMember(conversationId: string, adminId: string, targetUserId: string): Promise<void> {
+  const conv = await Conversation.findById(conversationId)
+  if (!conv) throw AppError.notFound('Conversation')
+  if (conv.type !== 'group') throw new AppError('INVALID_REQUEST', 'Cannot remove members from a DM', 400)
+  if (!conv.admins.some((id) => id.toString() === adminId)) {
+    throw AppError.forbidden('Only admins can remove members')
+  }
+  if (targetUserId === adminId) throw new AppError('INVALID_REQUEST', 'Use leave to remove yourself', 400)
+  conv.members = conv.members.filter((id) => id.toString() !== targetUserId)
+  conv.admins  = conv.admins.filter((id)  => id.toString() !== targetUserId)
+  await conv.save()
+}
+
 export async function leaveConversation(conversationId: string, userId: string): Promise<void> {
   const conv = await Conversation.findById(conversationId)
   if (!conv) throw AppError.notFound('Conversation')

@@ -1,34 +1,175 @@
 'use client'
 
+import { useState, useEffect } from 'react'
+import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Crown, UserPlus, LogOut } from 'lucide-react'
+import { X, Crown, UserPlus, LogOut, UserMinus, Search, Check, Loader2 } from 'lucide-react'
 import type { Conversation } from '@/lib/schemas'
+import type { PopulatedMember } from '@/lib/chat-types'
 import { getUserById } from '@/lib/mock-data'
 import Avatar from '@/components/ui/Avatar'
 import { cn } from '@/lib/utils'
+import { useChatStore } from '@/lib/store'
+
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
+const REAL_ID = /^[0-9a-f]{24}$/i
+
+interface SearchUser {
+  _id: string
+  displayName: string
+  username: string
+  avatar?: string
+  isOnline: boolean
+}
 
 interface GroupMembersModalProps {
   conversation: Conversation
+  memberDetails?: PopulatedMember[]
+  myUserId?: string
   onClose: () => void
 }
 
-type Member = NonNullable<ReturnType<typeof getUserById>>
+export default function GroupMembersModal({
+  conversation,
+  memberDetails,
+  myUserId,
+  onClose,
+}: GroupMembersModalProps) {
+  const { data: session } = useSession()
+  const router = useRouter()
+  const { setRealConversations, realConversations } = useChatStore()
+  const isReal = REAL_ID.test(conversation.id)
 
-export default function GroupMembersModal({ conversation, onClose }: GroupMembersModalProps) {
-  const members = conversation.members
-    .map((id) => getUserById(id))
-    .filter((m): m is Member => Boolean(m))
-    .sort((a, b) => {
-      if (a.role === 'admin' && b.role !== 'admin') return -1
-      if (a.role !== 'admin' && b.role === 'admin') return 1
-      if (a.isOnline && !b.isOnline) return -1
-      if (!a.isOnline && b.isOnline) return 1
-      return a.name.localeCompare(b.name)
-    })
+  // Build initial member list — real populated data or mock fallback
+  const initialMembers: PopulatedMember[] = memberDetails
+    ?? conversation.members
+         .map((id) => getUserById(id))
+         .filter((m): m is NonNullable<typeof m> => Boolean(m))
+         .map((m) => ({
+           id: m.id,
+           name: m.name,
+           avatar: m.avatar,
+           initials: m.initials,
+           isOnline: m.isOnline,
+           isAdmin: m.role === 'admin',
+           isMe: m.id === myUserId,
+         }))
 
-  const onlineCount    = members.filter((m) =>  m.isOnline).length
+  const [members, setMembers]         = useState<PopulatedMember[]>(initialMembers)
+  const [view, setView]               = useState<'list' | 'add'>('list')
+  const [searchQ, setSearchQ]         = useState('')
+  const [searchResults, setResults]   = useState<SearchUser[]>([])
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [leaveLoading, setLeaveLoad]  = useState(false)
+  const [addLoading, setAddLoading]   = useState(false)
+
   const onlineMembers  = members.filter((m) =>  m.isOnline)
   const offlineMembers = members.filter((m) => !m.isOnline)
+  const amIAdmin       = members.find((m) => m.isMe)?.isAdmin ?? false
+
+  // Search users when in add-member view
+  useEffect(() => {
+    if (view !== 'add' || !session?.accessToken) return
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(
+          `${API}/api/v1/users/search?q=${encodeURIComponent(searchQ)}`,
+          { headers: { Authorization: `Bearer ${session.accessToken}` } },
+        )
+        const json = await r.json()
+        if (json.success) {
+          const existing = new Set(members.map((m) => m.id))
+          setResults((json.data.items ?? []).filter((u: SearchUser) => !existing.has(u._id)))
+        }
+      } catch {/* ignore */}
+    }, 300)
+    return () => clearTimeout(t)
+  }, [searchQ, view, session?.accessToken, members])
+
+  const toggleSelect = (id: string) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+
+  // ── Leave group ───────────────────────────────────────────────────────────
+  const handleLeave = async () => {
+    if (!session?.accessToken || !isReal) return
+    setLeaveLoad(true)
+    try {
+      const r = await fetch(
+        `${API}/api/v1/conversations/${conversation.id}/leave`,
+        { method: 'DELETE', headers: { Authorization: `Bearer ${session.accessToken}` } },
+      )
+      if (r.ok) {
+        setRealConversations(realConversations.filter((c) => c._id !== conversation.id))
+        onClose()
+        router.push('/chat')
+      }
+    } catch {/* ignore */}
+    finally { setLeaveLoad(false) }
+  }
+
+  // ── Remove a member (admin only) ──────────────────────────────────────────
+  const handleRemove = async (memberId: string) => {
+    if (!session?.accessToken || !isReal) return
+    try {
+      const r = await fetch(
+        `${API}/api/v1/conversations/${conversation.id}/members/${memberId}`,
+        { method: 'DELETE', headers: { Authorization: `Bearer ${session.accessToken}` } },
+      )
+      if (r.ok) {
+        setMembers((prev) => prev.filter((m) => m.id !== memberId))
+        setRealConversations(
+          realConversations.map((c) =>
+            c._id === conversation.id
+              ? { ...c, members: c.members.filter((m) => m._id !== memberId) }
+              : c,
+          ),
+        )
+      }
+    } catch {/* ignore */}
+  }
+
+  // ── Add members ───────────────────────────────────────────────────────────
+  const handleAddMembers = async () => {
+    if (!session?.accessToken || selectedIds.size === 0) return
+    setAddLoading(true)
+    try {
+      const r = await fetch(
+        `${API}/api/v1/conversations/${conversation.id}/members`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.accessToken}`,
+          },
+          body: JSON.stringify({ userIds: [...selectedIds] }),
+        },
+      )
+      if (r.ok) {
+        const added: PopulatedMember[] = searchResults
+          .filter((u) => selectedIds.has(u._id))
+          .map((u) => ({
+            id: u._id,
+            name: u.displayName,
+            avatar: u.avatar,
+            initials: u.displayName.slice(0, 2).toUpperCase(),
+            isOnline: u.isOnline,
+            isAdmin: false,
+            isMe: false,
+          }))
+        setMembers((prev) => [...prev, ...added])
+        setSelectedIds(new Set())
+        setView('list')
+      }
+    } catch {/* ignore */}
+    finally { setAddLoading(false) }
+  }
+
+  const closeAdd = () => { setView('list'); setSelectedIds(new Set()); setSearchQ(''); setResults([]) }
 
   return (
     <AnimatePresence>
@@ -44,7 +185,7 @@ export default function GroupMembersModal({ conversation, onClose }: GroupMember
           onClick={onClose}
         />
 
-        {/* Centered modal */}
+        {/* Modal */}
         <motion.div
           key="members-panel"
           initial={{ opacity: 0, scale: 0.94, y: 16 }}
@@ -60,49 +201,166 @@ export default function GroupMembersModal({ conversation, onClose }: GroupMember
             {/* ── Header ── */}
             <div className="flex items-center justify-between px-5 pt-5 pb-4 flex-shrink-0">
               <div>
-                <h2 className="text-base font-bold text-[#2A1F14]">{conversation.name}</h2>
-                <p className="text-xs text-[#9A8474] mt-0.5">
-                  {members.length} members · {onlineCount} online
-                </p>
+                {view === 'add' ? (
+                  <h2 className="text-base font-bold text-[#2A1F14]">Add Members</h2>
+                ) : (
+                  <>
+                    <h2 className="text-base font-bold text-[#2A1F14]">{conversation.name}</h2>
+                    <p className="text-xs text-[#9A8474] mt-0.5">
+                      {members.length} members · {onlineMembers.length} online
+                    </p>
+                  </>
+                )}
               </div>
               <button
-                onClick={onClose}
+                onClick={view === 'add' ? closeAdd : onClose}
                 className="p-2 rounded-full hover:bg-[#EDE4D6] transition-colors text-[#9A8474]"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* ── Action buttons ── */}
-            <div className="flex gap-2 px-5 pb-4 flex-shrink-0">
-              <button className="flex-1 flex items-center justify-center gap-2 bg-[#7C5C3E] hover:bg-[#9B7653] text-white text-xs font-semibold py-2.5 rounded-xl transition-colors duration-200">
-                <UserPlus className="w-3.5 h-3.5" />
-                Add Member
-              </button>
-              <button className="flex-1 flex items-center justify-center gap-2 border border-red-300/60 hover:bg-red-50 text-red-500 text-xs font-semibold py-2.5 rounded-xl transition-colors duration-200">
-                <LogOut className="w-3.5 h-3.5" />
-                Leave Group
-              </button>
-            </div>
+            {/* ── Action buttons (list view only) ── */}
+            {view === 'list' && (
+              <>
+                <div className="flex gap-2 px-5 pb-4 flex-shrink-0">
+                  {isReal && amIAdmin && (
+                    <button
+                      onClick={() => { setView('add'); setSearchQ('') }}
+                      className="flex-1 flex items-center justify-center gap-2 bg-[#7C5C3E] hover:bg-[#9B7653] text-white text-xs font-semibold py-2.5 rounded-xl transition-colors duration-200"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      Add Member
+                    </button>
+                  )}
+                  {isReal && (
+                    <button
+                      onClick={handleLeave}
+                      disabled={leaveLoading}
+                      className="flex-1 flex items-center justify-center gap-2 border border-red-300/60 hover:bg-red-50 text-red-500 text-xs font-semibold py-2.5 rounded-xl transition-colors duration-200 disabled:opacity-50"
+                    >
+                      {leaveLoading
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <LogOut className="w-3.5 h-3.5" />}
+                      {leaveLoading ? 'Leaving…' : 'Leave Group'}
+                    </button>
+                  )}
+                </div>
+                <div className="h-px bg-[#E0D5C5] mx-5 flex-shrink-0" />
+              </>
+            )}
 
-            <div className="h-px bg-[#E0D5C5] mx-5 flex-shrink-0" />
+            {/* ── Add member search ── */}
+            {view === 'add' && (
+              <>
+                <div className="px-5 pb-3 flex-shrink-0">
+                  <div className="flex items-center gap-2 bg-white/60 border border-[#E0D5C5] rounded-2xl px-3 py-2">
+                    <Search className="w-4 h-4 text-[#9A8474] flex-shrink-0" />
+                    <input
+                      autoFocus
+                      value={searchQ}
+                      onChange={(e) => setSearchQ(e.target.value)}
+                      placeholder="Search by name or username…"
+                      className="flex-1 text-sm bg-transparent outline-none text-[#2A1F14] placeholder-[#B0A090]"
+                    />
+                  </div>
+                </div>
 
-            {/* ── Members list ── */}
+                {selectedIds.size > 0 && (
+                  <div className="px-5 pb-3 flex-shrink-0">
+                    <button
+                      onClick={handleAddMembers}
+                      disabled={addLoading}
+                      className="w-full flex items-center justify-center gap-2 bg-[#7C5C3E] hover:bg-[#9B7653] disabled:opacity-50 text-white text-xs font-semibold py-2.5 rounded-xl transition-colors"
+                    >
+                      {addLoading
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <UserPlus className="w-3.5 h-3.5" />}
+                      Add {selectedIds.size} member{selectedIds.size > 1 ? 's' : ''}
+                    </button>
+                  </div>
+                )}
+
+                <div className="h-px bg-[#E0D5C5] mx-5 flex-shrink-0" />
+              </>
+            )}
+
+            {/* ── List body ── */}
             <div className="overflow-y-auto chat-scrollbar flex-1 py-3">
-              {onlineMembers.length > 0 && (
-                <>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9A8474] px-5 pb-2">
-                    Online — {onlineMembers.length}
+
+              {/* Add-member search results */}
+              {view === 'add' && (
+                searchResults.length === 0 ? (
+                  <p className="text-center text-xs text-[#B0A090] py-8">
+                    {searchQ ? 'No users found' : 'Start typing to search users'}
                   </p>
-                  {onlineMembers.map((m) => <MemberRow key={m.id} member={m} />)}
-                </>
+                ) : (
+                  searchResults.map((u) => (
+                    <div
+                      key={u._id}
+                      onClick={() => toggleSelect(u._id)}
+                      className="flex items-center gap-3 px-5 py-2.5 hover:bg-[#EDE4D6] cursor-pointer transition-colors"
+                    >
+                      <div className={cn(
+                        'w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors',
+                        selectedIds.has(u._id)
+                          ? 'bg-[#7C5C3E] border-[#7C5C3E]'
+                          : 'border-[#C4B4A0] bg-white',
+                      )}>
+                        {selectedIds.has(u._id) && <Check className="w-2.5 h-2.5 text-white" />}
+                      </div>
+                      <Avatar
+                        src={u.avatar}
+                        initials={u.displayName.slice(0, 2).toUpperCase()}
+                        name={u.displayName}
+                        id={u._id}
+                        size="md"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-[#2A1F14] truncate">{u.displayName}</p>
+                        <p className="text-xs text-[#9A8474]">@{u.username}</p>
+                      </div>
+                    </div>
+                  ))
+                )
               )}
-              {offlineMembers.length > 0 && (
+
+              {/* Member list */}
+              {view === 'list' && (
                 <>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9A8474] px-5 pt-3 pb-2">
-                    Offline — {offlineMembers.length}
-                  </p>
-                  {offlineMembers.map((m) => <MemberRow key={m.id} member={m} />)}
+                  {onlineMembers.length > 0 && (
+                    <>
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9A8474] px-5 pb-2">
+                        Online — {onlineMembers.length}
+                      </p>
+                      {onlineMembers.map((m) => (
+                        <MemberRow
+                          key={m.id}
+                          member={m}
+                          canRemove={isReal && amIAdmin && !m.isMe}
+                          onRemove={() => handleRemove(m.id)}
+                        />
+                      ))}
+                    </>
+                  )}
+                  {offlineMembers.length > 0 && (
+                    <>
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9A8474] px-5 pt-3 pb-2">
+                        Offline — {offlineMembers.length}
+                      </p>
+                      {offlineMembers.map((m) => (
+                        <MemberRow
+                          key={m.id}
+                          member={m}
+                          canRemove={isReal && amIAdmin && !m.isMe}
+                          onRemove={() => handleRemove(m.id)}
+                        />
+                      ))}
+                    </>
+                  )}
+                  {members.length === 0 && (
+                    <p className="text-center text-xs text-[#B0A090] py-8">No members to show</p>
+                  )}
                 </>
               )}
             </div>
@@ -113,9 +371,17 @@ export default function GroupMembersModal({ conversation, onClose }: GroupMember
   )
 }
 
-function MemberRow({ member }: { member: Member }) {
+function MemberRow({
+  member,
+  canRemove,
+  onRemove,
+}: {
+  member: PopulatedMember
+  canRemove: boolean
+  onRemove: () => void
+}) {
   return (
-    <div className="flex items-center gap-3 px-5 py-2.5 hover:bg-[#EDE4D6] transition-colors">
+    <div className="group flex items-center gap-3 px-5 py-2.5 hover:bg-[#EDE4D6] transition-colors">
       <div className="relative flex-shrink-0">
         <Avatar src={member.avatar} initials={member.initials} name={member.name} id={member.id} size="md" />
         <span className={cn(
@@ -126,20 +392,32 @@ function MemberRow({ member }: { member: Member }) {
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className={cn('text-sm font-medium truncate', member.id === 'me' ? 'text-[#7C5C3E]' : 'text-[#2A1F14]')}>
-            {member.id === 'me' ? `${member.name} (You)` : member.name}
+          <p className={cn(
+            'text-sm font-medium truncate',
+            member.isMe ? 'text-[#7C5C3E]' : 'text-[#2A1F14]',
+          )}>
+            {member.isMe ? `${member.name} (You)` : member.name}
           </p>
-          {member.role === 'admin' && (
+          {member.isAdmin && (
             <Crown className="w-3 h-3 text-amber-500 flex-shrink-0" fill="currentColor" />
           )}
         </div>
         <p className="text-xs mt-0.5">
           {member.isOnline
             ? <span className="text-emerald-600 font-medium">Online</span>
-            : <span className="text-[#B0A090]">Offline</span>
-          }
+            : <span className="text-[#B0A090]">Offline</span>}
         </p>
       </div>
+
+      {canRemove && (
+        <button
+          onClick={onRemove}
+          className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-100 text-red-400 hover:text-red-600 transition-all flex-shrink-0"
+          title="Remove from group"
+        >
+          <UserMinus className="w-3.5 h-3.5" />
+        </button>
+      )}
     </div>
   )
 }

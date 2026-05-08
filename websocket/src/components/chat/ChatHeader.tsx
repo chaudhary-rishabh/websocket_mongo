@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { AnimatePresence } from 'framer-motion'
 import { useSession } from 'next-auth/react'
 import type { Conversation } from '@/lib/schemas'
+import type { PopulatedMember } from '@/lib/chat-types'
 import Avatar from '@/components/ui/Avatar'
 import { useChatStore } from '@/lib/store'
 import GroupMembersModal from './GroupMembersModal'
@@ -17,6 +18,8 @@ interface ChatHeaderProps {
   onEnterSelectMode: () => void
   onExitSelectMode: () => void
   onDeleteSelected: () => void
+  memberDetails?: PopulatedMember[]
+  myUserId?: string
 }
 
 export default function ChatHeader({
@@ -26,6 +29,8 @@ export default function ChatHeader({
   onEnterSelectMode,
   onExitSelectMode,
   onDeleteSelected,
+  memberDetails,
+  myUserId,
 }: ChatHeaderProps) {
   const { toggleSidebar, setSearchOpen } = useChatStore()
   const { data: session } = useSession()
@@ -137,7 +142,12 @@ export default function ChatHeader({
 
       <AnimatePresence>
         {membersOpen && (
-          <GroupMembersModal conversation={conversation} onClose={() => setMembersOpen(false)} />
+          <GroupMembersModal
+            conversation={conversation}
+            memberDetails={memberDetails}
+            myUserId={myUserId}
+            onClose={() => setMembersOpen(false)}
+          />
         )}
       </AnimatePresence>
     </>

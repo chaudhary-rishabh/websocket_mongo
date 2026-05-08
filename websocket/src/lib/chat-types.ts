@@ -43,11 +43,22 @@ export interface ApiConversation {
   name?: string
   avatar?: string
   members: ApiUser[]
+  admins?: string[]
   lastMessage?: ApiMessage
   lastMessageTime?: string
   unreadCount?: number
   isPinned?: boolean
   createdAt: string
+}
+
+export interface PopulatedMember {
+  id: string
+  name: string
+  avatar?: string
+  initials: string
+  isOnline: boolean
+  isAdmin: boolean
+  isMe: boolean
 }
 
 // ─── WebSocket events ────────────────────────────────────────────────────────

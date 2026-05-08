@@ -24,6 +24,12 @@ export const AddMembersSchema = z.object({
   userIds: z.array(z.string().min(1)).min(1),
 })
 
+export const RemoveMemberParamSchema = z.object({
+  conversationId: z.string().min(1),
+  memberId: z.string().min(1),
+})
+
 export type CreateConversationInput = z.infer<typeof CreateConversationSchema>
 export type UpdateConversationInput = z.infer<typeof UpdateConversationSchema>
 export type AddMembersInput = z.infer<typeof AddMembersSchema>
+export type RemoveMemberParams = z.infer<typeof RemoveMemberParamSchema>

@@ -1,7 +1,6 @@
 import { importPKCS8, importSPKI } from 'jose'
 import { env } from './env.js'
 
-// jose v6 uses CryptoKey (Web Crypto API) natively
 let privateKey: CryptoKey | undefined
 let publicKey: CryptoKey | undefined
 

@@ -45,15 +45,12 @@ export default function ChatView({ conversationId }: ChatViewProps) {
 
   const pagination = messagePagination[conversationId]
 
-  // ── Load real conversation & messages (first page) ─────────────────────
   useEffect(() => {
     if (!isReal || !session?.accessToken) return
 
-    // Find from cached list first
     const cached = realConversations.find((c) => c._id === conversationId)
     if (cached) setApiConversation(cached)
 
-    // Load first page of messages (with 401 retry)
     authFetch(
       `${API}/api/v1/conversations/${conversationId}/messages?limit=30`,
       {},
@@ -72,7 +69,6 @@ export default function ChatView({ conversationId }: ChatViewProps) {
       })
       .catch(() => { toast.error('Failed to load messages') })
 
-    // Load conversation details if not cached (with 401 retry)
     if (!cached) {
       authFetch(`${API}/api/v1/conversations/${conversationId}`, {}, session.accessToken)
         .then((r) => r.json())
@@ -81,7 +77,6 @@ export default function ChatView({ conversationId }: ChatViewProps) {
     }
   }, [isReal, conversationId, session?.accessToken, realConversations, prependMessages, setMessagePagination])
 
-  // ── Load older messages on scroll-to-top ──────────────────────────────
   const loadMore = useCallback(() => {
     if (!pagination?.hasMore || !pagination.nextCursor || isLoadingMore || !session?.accessToken) return
     setIsLoadingMore(true)
@@ -105,7 +100,6 @@ export default function ChatView({ conversationId }: ChatViewProps) {
       .finally(() => setIsLoadingMore(false))
   }, [conversationId, isLoadingMore, pagination, prependMessages, session?.accessToken, setMessagePagination])
 
-  // ── Join / leave WS room for real conversations ────────────────────────
   useEffect(() => {
     if (!isReal) return
     wsClient.send({ type: 'JOIN_CONVERSATION', conversationId })
@@ -114,14 +108,12 @@ export default function ChatView({ conversationId }: ChatViewProps) {
     return () => { wsClient.send({ type: 'LEAVE_CONVERSATION', conversationId }) }
   }, [isReal, conversationId, clearUnreadCount])
 
-  // ── Send MARK_READ when new real-time messages arrive ─────────────────
   const realtimeMsgCount = realtimeMessages[conversationId]?.length ?? 0
   useEffect(() => {
     if (!isReal || realtimeMsgCount === 0) return
     wsClient.send({ type: 'MARK_READ', conversationId })
   }, [isReal, conversationId, realtimeMsgCount])
 
-  // ── Message selection ──────────────────────────────────────────────────
   const toggleSelect = (id: string) =>
     setSelectedIds((prev) => {
       const next = new Set(prev)
@@ -140,11 +132,9 @@ export default function ChatView({ conversationId }: ChatViewProps) {
     setIsSelectMode(false)
   }
 
-  // ── Send ──────────────────────────────────────────────────────────────
   const handleSend = useCallback((content: string) => {
     if (isReal) {
       const tempId = crypto.randomUUID()
-      // Optimistic message
       const optimistic: ApiMessage = {
         _id: tempId,
         conversationId,
@@ -161,10 +151,8 @@ export default function ChatView({ conversationId }: ChatViewProps) {
       appendMessage(conversationId, optimistic)
       wsClient.send({ type: 'SEND_MESSAGE', conversationId, tempId, messageType: 'text', content })
     }
-    // For mock conversations we just display — no real send needed
   }, [isReal, conversationId, session?.user?.id, appendMessage])
 
-  // ── Typing ────────────────────────────────────────────────────────────
   const handleTypingStart = useCallback(() => {
     if (isReal) wsClient.send({ type: 'TYPING_START', conversationId })
   }, [isReal, conversationId])
@@ -173,14 +161,12 @@ export default function ChatView({ conversationId }: ChatViewProps) {
     if (isReal) wsClient.send({ type: 'TYPING_STOP', conversationId })
   }, [isReal, conversationId])
 
-  // ── Compute data to render ─────────────────────────────────────────────
-  // Mock conversation path
+
   const mockConversation = !isReal ? getConversationById(conversationId) : null
   const conversation: Conversation | null = isReal
     ? (apiConversation && Array.isArray(apiConversation.members)
         ? (() => {
             const isDm = apiConversation.type === 'dm'
-            // For DMs show only the OTHER person's name/avatar
             const other = isDm
               ? apiConversation.members.find((p) => p._id !== session?.user?.id)
               : null
@@ -205,7 +191,6 @@ export default function ChatView({ conversationId }: ChatViewProps) {
         : null)
     : (mockConversation ?? null)
 
-  // Build senderMap for real messages
   const senderMap: Record<string, { id: string; name: string; avatar?: string; initials: string }> = {}
   if (isReal && apiConversation && Array.isArray(apiConversation.members)) {
     for (const p of apiConversation.members) {
@@ -218,7 +203,6 @@ export default function ChatView({ conversationId }: ChatViewProps) {
     }
   }
 
-  // Build populated member details for GroupMembersModal
   const memberDetails: PopulatedMember[] | undefined =
     isReal && apiConversation && Array.isArray(apiConversation.members)
       ? apiConversation.members.map((p) => ({
@@ -232,11 +216,9 @@ export default function ChatView({ conversationId }: ChatViewProps) {
         }))
       : undefined
 
-  // Real messages from store; mock messages from mock-data
   const realtimeMsgs = realtimeMessages[conversationId] ?? []
   const mockMessages = !isReal ? getMessages(conversationId).filter((m) => !deletedIds.has(m.id)) : []
 
-  // Typing usernames in this conversation (userId→username map)
   const typingMap = typingUsers[conversationId] ?? {}
   const typingUsernames = Object.entries(typingMap)
     .filter(([uid]) => uid !== session?.user?.id)
@@ -252,7 +234,6 @@ export default function ChatView({ conversationId }: ChatViewProps) {
 
   return (
     <div className="relative flex flex-col h-full overflow-hidden">
-      {/* Header floats above the message list so backdrop-blur shows blurred messages */}
       {conversation && (
         <div className="absolute inset-x-0 top-0 z-10 rounded-t-[25px] overflow-hidden">
           <ChatHeader
@@ -286,7 +267,6 @@ export default function ChatView({ conversationId }: ChatViewProps) {
         />
       </div>
 
-      {/* Footer: delete bar or input */}
       <AnimatePresence mode="wait">
         {isSelectMode ? (
           <motion.div

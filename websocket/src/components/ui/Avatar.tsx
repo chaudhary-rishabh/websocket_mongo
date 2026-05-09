@@ -51,7 +51,6 @@ export default function Avatar({
 
   return (
     <div className={cn('relative flex-shrink-0 inline-flex', SIZE_CLASS[size], className)}>
-      {/* Circle */}
       <div className={cn('rounded-full overflow-hidden w-full h-full', !src && colorClass)}>
         {src ? (
           <Image
@@ -70,7 +69,6 @@ export default function Avatar({
         )}
       </div>
 
-      {/* Online indicator */}
       {isOnline !== undefined && (
         <span
           className={cn(

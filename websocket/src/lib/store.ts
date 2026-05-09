@@ -1,32 +1,22 @@
 import { create } from 'zustand'
 import type { ApiMessage, ApiMessageSender, ApiConversation } from './chat-types'
 
-interface TypingState {
-  /** conversationId → Set of userIds currently typing */
-  typingUsers: Record<string, Set<string>>
-}
-
 interface ChatStore {
-  // ── Navigation ───────────────────────────────────────────────────────
   activeConversationId: string | null
   setActiveConversationId: (id: string) => void
 
-  // ── Search ───────────────────────────────────────────────────────────
   searchQuery: string
   setSearchQuery: (q: string) => void
   isSearchOpen: boolean
   setSearchOpen: (open: boolean) => void
 
-  // ── Sidebar ──────────────────────────────────────────────────────────
   isSidebarOpen: boolean
   toggleSidebar: () => void
   setSidebarOpen: (open: boolean) => void
 
-  // ── WebSocket ────────────────────────────────────────────────────────
   wsConnected: boolean
   setWsConnected: (v: boolean) => void
 
-  // ── Real-time messages (keyed by conversationId) ─────────────────────
   realtimeMessages: Record<string, ApiMessage[]>
   appendMessage: (convId: string, msg: ApiMessage) => void
   replaceTempMessage: (convId: string, tempId: string, msg: ApiMessage) => void
@@ -34,52 +24,42 @@ interface ChatStore {
   markMessagesRead: (convId: string, userId: string, readAt: string) => void
   updateMessage: (convId: string, msg: ApiMessage) => void
 
-  // ── Typing — convId → { userId: displayName } ────────────────────────
   typingUsers: Record<string, Record<string, string>>
   setTyping: (convId: string, userId: string, username: string, isTyping: boolean) => void
 
-  // ── Online presence ──────────────────────────────────────────────────
   onlineUserIds: Set<string>
   setUserOnline: (userId: string) => void
   setUserOffline: (userId: string) => void
 
-  // ── Real conversations from API ──────────────────────────────────────
   realConversations: ApiConversation[]
   setRealConversations: (convs: ApiConversation[]) => void
   clearUnreadCount: (convId: string) => void
   updateConversationLastMessage: (convId: string, msg: ApiMessage) => void
 
-  // ── Message pagination (keyed by conversationId) ─────────────────────
   messagePagination: Record<string, { nextCursor?: string; hasMore: boolean }>
   setMessagePagination: (convId: string, info: { nextCursor?: string; hasMore: boolean }) => void
 }
 
 export const useChatStore = create<ChatStore>((set) => ({
-  // Navigation
   activeConversationId: 'conv-1',
   setActiveConversationId: (id) => set({ activeConversationId: id, isSidebarOpen: false }),
 
-  // Search
   searchQuery: '',
   setSearchQuery: (q) => set({ searchQuery: q }),
   isSearchOpen: false,
   setSearchOpen: (open) => set({ isSearchOpen: open }),
 
-  // Sidebar
   isSidebarOpen: false,
   toggleSidebar: () => set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
   setSidebarOpen: (open) => set({ isSidebarOpen: open }),
 
-  // WebSocket
   wsConnected: false,
   setWsConnected: (v) => set({ wsConnected: v }),
 
-  // Real-time messages
   realtimeMessages: {},
   appendMessage: (convId, msg) =>
     set((s) => {
       const prev = s.realtimeMessages[convId] ?? []
-      // Avoid duplicates
       if (prev.some((m) => m._id === msg._id)) return s
       return { realtimeMessages: { ...s.realtimeMessages, [convId]: [...prev, msg] } }
     }),
@@ -88,7 +68,6 @@ export const useChatStore = create<ChatStore>((set) => ({
       const prev = s.realtimeMessages[convId] ?? []
       const idx = prev.findIndex((m) => m.tempId === tempId)
       if (idx === -1) {
-        // Not found — just append (may already exist with correct _id)
         if (prev.some((m) => m._id === msg._id)) return s
         return { realtimeMessages: { ...s.realtimeMessages, [convId]: [...prev, msg] } }
       }
@@ -123,9 +102,8 @@ export const useChatStore = create<ChatStore>((set) => ({
       if (!msgs) return s
       const updated = msgs.map((m) => (m._id === msg._id ? msg : m))
       return { realtimeMessages: { ...s.realtimeMessages, [convId]: updated } }
-    }),
+    }),  
 
-  // Typing
   typingUsers: {},
   setTyping: (convId, userId, username, isTyping) =>
     set((s) => {
@@ -133,9 +111,8 @@ export const useChatStore = create<ChatStore>((set) => ({
       if (isTyping) prev[userId] = username
       else delete prev[userId]
       return { typingUsers: { ...s.typingUsers, [convId]: prev } }
-    }),
+    }),  
 
-  // Online presence
   onlineUserIds: new Set(),
   setUserOnline: (userId) =>
     set((s) => ({ onlineUserIds: new Set([...s.onlineUserIds, userId]) })),
@@ -144,9 +121,8 @@ export const useChatStore = create<ChatStore>((set) => ({
       const next = new Set(s.onlineUserIds)
       next.delete(userId)
       return { onlineUserIds: next }
-    }),
+    }),  
 
-  // Real conversations
   realConversations: [],
   setRealConversations: (convs) => set({ realConversations: convs }),
   clearUnreadCount: (convId) =>
@@ -162,9 +138,8 @@ export const useChatStore = create<ChatStore>((set) => ({
       const updated = { ...s.realConversations[idx], lastMessage: msg, lastMessageTime: msg.createdAt }
       const rest = s.realConversations.filter((_, i) => i !== idx)
       return { realConversations: [updated, ...rest] }
-    }),
+    }),  
 
-  // Message pagination
   messagePagination: {},
   setMessagePagination: (convId, info) =>
     set((s) => ({

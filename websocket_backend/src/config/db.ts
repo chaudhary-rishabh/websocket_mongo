@@ -2,11 +2,6 @@ import mongoose from 'mongoose'
 import { env } from './env.js'
 import { logger } from '../shared/utils/logger.js'
 
-/**
- * Drop the old unique index on aisessions.userId if it still exists.
- * This was present in the original schema (single-session-per-user) and
- * must be removed to allow multiple sessions per user.
- */
 async function migrateAiSessions(): Promise<void> {
   try {
     const col = mongoose.connection.collection('aisessions')
@@ -19,7 +14,6 @@ async function migrateAiSessions(): Promise<void> {
       logger.info('Migrated: dropped unique index on aisessions.userId')
     }
   } catch (err) {
-    // Non-fatal — log and continue
     logger.warn({ err }, 'Migration: could not drop aisessions userId index')
   }
 }

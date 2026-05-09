@@ -14,8 +14,6 @@ import MessageInput from './MessageInput'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 interface AiSessionSummary {
   _id: string
   title?: string
@@ -38,8 +36,6 @@ interface SearchUser {
   username: string
   avatar?: string
 }
-
-// ─── SSE stream reader ────────────────────────────────────────────────────────
 
 async function readStream(
   response: Response,
@@ -75,8 +71,6 @@ async function readStream(
   }
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function formatRelative(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
   const mins = Math.floor(diff / 60_000)
@@ -105,24 +99,19 @@ function groupSessions(sessions: AiSessionSummary[]) {
   return groups
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
-
 export default function AIChatView() {
   const { data: session } = useSession()
   const { toggleSidebar } = useChatStore()
 
-  // Sessions
   const [sessions,      setSessions]      = useState<AiSessionSummary[]>([])
   const [currentSessId, setCurrentSessId] = useState<string | null>(null)
   const [panelOpen,     setPanelOpen]     = useState(true)
   const [clearConfirm,  setClearConfirm]  = useState(false)
 
-  // Messages
   const [messages,     setMessages]     = useState<AiMessage[]>([])
   const [msgsLoading,  setMsgsLoading]  = useState(false)
   const [isStreaming,  setIsStreaming]   = useState(false)
 
-  // Analyse bottom sheet
   const [analyzeOpen,   setAnalyzeOpen]   = useState(false)
   const [userSearchQ,   setUserSearchQ]   = useState('')
   const [userResults,   setUserResults]   = useState<SearchUser[]>([])
@@ -131,7 +120,6 @@ export default function AIChatView() {
   const bottomRef      = useRef<HTMLDivElement>(null)
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // ── Load sessions on mount ────────────────────────────────────────────────
   useEffect(() => {
     if (!session?.accessToken) return
     const token = session.accessToken
@@ -165,12 +153,10 @@ export default function AIChatView() {
     return () => { cancelled = true }
   }, [session?.accessToken])
 
-  // ── Scroll to bottom when messages change ─────────────────────────────────
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // ── User search (debounced) ───────────────────────────────────────────────
   useEffect(() => {
     if (!analyzeOpen || !session?.accessToken) return
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
@@ -180,13 +166,11 @@ export default function AIChatView() {
         const r    = await fetch(`${API}/api/v1/users/search?q=${encodeURIComponent(userSearchQ)}`, { headers: { Authorization: `Bearer ${session.accessToken}` } })
         const json = await r.json()
         if (json.success) setUserResults(json.data.items ?? [])
-      } catch {/* ignore */}
-      finally { setSearchLoading(false) }
+      } catch {
+      } finally { setSearchLoading(false) }
     }, 300)
     return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current) }
   }, [userSearchQ, analyzeOpen, session?.accessToken])
-
-  // ── Session management ────────────────────────────────────────────────────
 
   const loadSession = useCallback(async (sessionId: string) => {
     if (!session?.accessToken) return
@@ -207,7 +191,6 @@ export default function AIChatView() {
   const createNewSession = useCallback(async (): Promise<string | null> => {
     if (!session?.accessToken) return null
 
-    // Reuse current session if it's already empty (no messages sent yet)
     if (currentSessId && messages.length === 0) {
       setPanelOpen(true)
       return currentSessId
@@ -224,7 +207,7 @@ export default function AIChatView() {
       setSessions((prev) => [newSess, ...prev])
       setCurrentSessId(newSess._id)
       setMessages([])
-      setPanelOpen(true)   // open panel so user sees the new chat in the list
+      setPanelOpen(true)
       return newSess._id
     } catch {
       toast.error('Failed to create new chat')
@@ -275,13 +258,11 @@ export default function AIChatView() {
     setClearConfirm(false)
   }, [session?.accessToken])
 
-  // ── Ensure a session exists before streaming ──────────────────────────────
   const ensureSession = useCallback(async (): Promise<string | null> => {
     if (currentSessId) return currentSessId
     return createNewSession()
   }, [currentSessId, createNewSession])
 
-  // ── Core stream runner ────────────────────────────────────────────────────
   const runStream = useCallback(async (
     userLabel: string,
     makeFetch: (sessionId: string) => Promise<Response>,
@@ -324,7 +305,6 @@ export default function AIChatView() {
     } finally {
       setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, streaming: false } : m))
       setIsStreaming(false)
-      // Update session in sidebar list (title + activity time)
       setSessions((prev) => prev.map((s) =>
         s._id === sessionId
           ? { ...s, title: s.title || userLabel.slice(0, 75), lastActivityAt: new Date().toISOString(), messageCount: s.messageCount + 2 }
@@ -333,7 +313,6 @@ export default function AIChatView() {
     }
   }, [isStreaming, session?.accessToken, ensureSession])
 
-  // ── Send chat message ─────────────────────────────────────────────────────
   const handleSend = useCallback(async (userContent: string) => {
     if (isStreaming || !session?.accessToken) return
     const history = messages.map(({ role, content }) => ({ role, content }))
@@ -347,7 +326,6 @@ export default function AIChatView() {
     )
   }, [isStreaming, session?.accessToken, messages, runStream])
 
-  // ── Analyse user ──────────────────────────────────────────────────────────
   const handleAnalyze = useCallback(async (userId: string, displayName: string) => {
     if (!session?.accessToken) return
     const isSelf = userId === 'me'
@@ -362,12 +340,9 @@ export default function AIChatView() {
     )
   }, [session?.accessToken, runStream])
 
-  // ── Render ────────────────────────────────────────────────────────────────
-
   return (
     <div className="flex h-full overflow-hidden">
 
-      {/* ── Sessions panel ── */}
       <motion.div
         animate={{ width: panelOpen ? 220 : 0 }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
@@ -375,7 +350,6 @@ export default function AIChatView() {
       >
         <div className="w-[220px] h-full flex flex-col border-r border-white/40 bg-white/60">
 
-          {/* Panel header */}
           <div className="flex items-center justify-between px-3 pt-4 pb-2 flex-shrink-0">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Chats</p>
             <button
@@ -387,7 +361,6 @@ export default function AIChatView() {
             </button>
           </div>
 
-          {/* Sessions list */}
           <div className="flex-1 overflow-y-auto chat-scrollbar">
             {sessions.length === 0 ? (
               <p className="text-center text-xs text-gray-400 px-4 py-10 leading-relaxed">
@@ -413,7 +386,6 @@ export default function AIChatView() {
             )}
           </div>
 
-          {/* Panel footer — clear all */}
           <div className="flex-shrink-0 p-3 border-t border-gray-200">
             <AnimatePresence mode="wait">
               {clearConfirm ? (
@@ -456,13 +428,10 @@ export default function AIChatView() {
         </div>
       </motion.div>
 
-      {/* ── Chat area ── */}
       <div className="relative flex flex-col flex-1 overflow-hidden min-w-0">
 
-        {/* Floating header */}
         <div className="absolute inset-x-0 top-0 z-10 rounded-tr-[25px] overflow-hidden">
           <header className="flex items-center gap-3 px-5 py-3.5 header-glass flex-shrink-0">
-            {/* Panel toggle */}
             <button
               onClick={() => setPanelOpen((p) => !p)}
               className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-500 flex-shrink-0"
@@ -473,7 +442,6 @@ export default function AIChatView() {
                 : <PanelLeftOpen  className="w-4 h-4" />}
             </button>
 
-            {/* Mobile sidebar toggle */}
             <button
               onClick={toggleSidebar}
               className="md:hidden p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-500"
@@ -497,7 +465,6 @@ export default function AIChatView() {
               {isStreaming ? 'Thinking…' : 'Ready'}
             </div>
 
-            {/* New Chat button — always visible */}
             <button
               onClick={() => void createNewSession()}
               disabled={isStreaming}
@@ -509,11 +476,9 @@ export default function AIChatView() {
           </header>
         </div>
 
-        {/* Messages */}
         <div className="flex flex-col flex-1 overflow-hidden pt-[68px]">
           <div className="flex-1 overflow-y-auto chat-scrollbar px-4 py-4 flex flex-col gap-3">
 
-            {/* Loading skeleton */}
             {msgsLoading && (
               <div className="flex flex-col gap-3 px-2 py-4">
                 {[65, 50, 75].map((w, i) => (
@@ -525,7 +490,6 @@ export default function AIChatView() {
               </div>
             )}
 
-            {/* Empty state — shown only when session is selected but empty (or no session) */}
             {!msgsLoading && messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full gap-5 text-center px-6">
                 <div className="w-16 h-16 rounded-2xl bg-gray-900 flex items-center justify-center shadow-lg">
@@ -601,7 +565,6 @@ export default function AIChatView() {
           </div>
         </div>
 
-        {/* Analyse user bottom sheet */}
         <AnimatePresence>
           {analyzeOpen && (
             <>
@@ -668,14 +631,11 @@ export default function AIChatView() {
           )}
         </AnimatePresence>
 
-        {/* Input */}
         <MessageInput onSend={(c) => void handleSend(c)} onTypingStart={() => {}} onTypingStop={() => {}} />
       </div>
     </div>
   )
 }
-
-// ─── Session item ─────────────────────────────────────────────────────────────
 
 function SessionItem({
   session, isActive, onSelect, onDelete,
@@ -708,8 +668,6 @@ function SessionItem({
     </div>
   )
 }
-
-// ─── Message bubble ───────────────────────────────────────────────────────────
 
 function AiBubble({ message }: { message: AiMessage }) {
   const isUser = message.role === 'user'

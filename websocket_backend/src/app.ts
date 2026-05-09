@@ -2,9 +2,7 @@ import express from 'express'
 import helmet from 'helmet'
 import cors from 'cors'
 import hpp from 'hpp'
-// pino-http uses CJS exports; cast for ESM + NodeNext compat
 import _pinoHttp from 'pino-http'
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const pinoHttp = _pinoHttp as any as (opts: object) => import('express').RequestHandler
 import { env } from './config/env.js'
 import { logger } from './shared/utils/logger.js'
@@ -12,7 +10,6 @@ import { requestId } from './middleware/requestId.js'
 import { globalRateLimit } from './middleware/rateLimit.js'
 import { errorHandler } from './middleware/error.js'
 
-// Routes
 import authRoutes from './modules/auth/auth.routes.js'
 import userRoutes from './modules/users/user.routes.js'
 import conversationRoutes from './modules/conversations/conversation.routes.js'
@@ -22,7 +19,6 @@ import aiRoutes from './modules/ai/ai.routes.js'
 
 const app = express()
 
-// ── Security ────────────────────────────────────────────────────────────────
 app.use(helmet())
 app.use(
   cors({
@@ -35,8 +31,6 @@ app.use(
 )
 app.use(hpp())
 
-// Strip MongoDB operator keys ($...) from req.body — compatible with Express v5
-// (express-mongo-sanitize mutates req.query which is read-only in Express v5)
 function sanitizeValue(val: unknown): unknown {
   if (Array.isArray(val)) return val.map(sanitizeValue)
   if (val !== null && typeof val === 'object') {
@@ -53,11 +47,9 @@ app.use((req, _res, next) => {
   next()
 })
 
-// ── Request parsing ──────────────────────────────────────────────────────────
 app.use(express.json({ limit: '1mb' }))
 app.use(express.urlencoded({ extended: true, limit: '1mb' }))
 
-// ── Observability ────────────────────────────────────────────────────────────
 app.use(requestId)
 app.use(
   pinoHttp({
@@ -74,15 +66,12 @@ app.use(
   }),
 )
 
-// ── Rate limiting ────────────────────────────────────────────────────────────
 app.use(globalRateLimit)
 
-// ── Health check ─────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() })
 })
 
-// ── API Routes ───────────────────────────────────────────────────────────────
 const API = '/api/v1'
 
 app.use(`${API}/auth`, authRoutes)
@@ -92,12 +81,10 @@ app.use(`${API}/conversations/:conversationId/messages`, messageRoutes)
 app.use(`${API}/media`, mediaRoutes)
 app.use(`${API}/ai`, aiRoutes)
 
-// ── 404 ──────────────────────────────────────────────────────────────────────
 app.use((_req, res) => {
   res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Route not found' } })
 })
 
-// ── Error handler ────────────────────────────────────────────────────────────
 app.use(errorHandler)
 
 export default app

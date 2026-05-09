@@ -32,7 +32,6 @@ export class AppError extends Error {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction): void {
   if (err instanceof AppError) {
     if (err.statusCode >= 500) {
@@ -42,13 +41,11 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     return
   }
 
-  // Mongoose duplicate key
   if (typeof err === 'object' && err !== null && 'code' in err && (err as { code: unknown }).code === 11000) {
     sendError(res, 'CONFLICT', 'Duplicate entry', { status: 409 })
     return
   }
 
-  // Mongoose cast error
   if (typeof err === 'object' && err !== null && 'name' in err && (err as { name: unknown }).name === 'CastError') {
     sendError(res, 'INVALID_ID', 'Invalid resource ID', { status: 400 })
     return

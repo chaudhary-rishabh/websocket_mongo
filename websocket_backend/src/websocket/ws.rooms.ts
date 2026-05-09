@@ -1,9 +1,7 @@
 import type { AuthenticatedSocket } from './ws.types.js'
 
-// Map conversationId → Set of sockets
 const rooms = new Map<string, Set<AuthenticatedSocket>>()
 
-// Map userId → Set of sockets (user may have multiple tabs)
 const userSockets = new Map<string, Set<AuthenticatedSocket>>()
 
 export function joinRoom(conversationId: string, socket: AuthenticatedSocket): void {
@@ -32,7 +30,7 @@ export function broadcastToRoom(
   if (!sockets) return
   const msg = JSON.stringify(payload)
   for (const sock of sockets) {
-    if (sock !== excludeSocket && sock.readyState === 1 /* OPEN */) {
+    if (sock !== excludeSocket && sock.readyState === 1) {
       sock.send(msg)
     }
   }

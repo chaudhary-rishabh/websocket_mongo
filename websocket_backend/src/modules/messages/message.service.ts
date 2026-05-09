@@ -63,7 +63,6 @@ export async function sendMessage(
     },
   })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (message as any).populate('senderId', 'username displayName avatar')
 }
 

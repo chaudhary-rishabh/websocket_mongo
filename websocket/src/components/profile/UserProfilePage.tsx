@@ -37,7 +37,6 @@ export default function UserProfilePage({ user }: UserProfilePageProps) {
   return (
     <div className="min-h-screen bg-white bg-texture">
 
-      {/* ── Top bar ── */}
       <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-[#BFDBFE] px-4 py-3 flex items-center gap-3">
         <Link href="/chat" className="p-2 -ml-1 rounded-full hover:bg-[#DBEAFE] transition-colors">
           <ArrowLeft className="w-4 h-4 text-[#6B7280]" />
@@ -47,17 +46,14 @@ export default function UserProfilePage({ user }: UserProfilePageProps) {
 
       <div className="max-w-md mx-auto px-4 py-6 flex flex-col gap-3">
 
-        {/* ── Hero card ── */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
           className="bg-[#EFF6FF] rounded-[25px] overflow-hidden border border-[#BFDBFE]"
         >
-          {/* Gradient strip */}
           <div className="h-20" style={{ background: 'linear-gradient(135deg, #3B82F6 0%, #93C5FD 100%)' }} />
 
-          {/* Avatar + identity */}
           <div className="px-5 pb-5 flex flex-col items-center -mt-10">
             <div className="w-20 h-20 rounded-full ring-4 ring-[#EFF6FF] overflow-hidden shadow-md">
               {user.avatar ? (
@@ -77,7 +73,6 @@ export default function UserProfilePage({ user }: UserProfilePageProps) {
               </span>
             )}
 
-            {/* Online / last seen */}
             <div className="mt-2">
               {user.isOnline ? (
                 <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">
@@ -91,7 +86,6 @@ export default function UserProfilePage({ user }: UserProfilePageProps) {
               )}
             </div>
 
-            {/* Action buttons */}
             <div className="mt-5 flex gap-3 w-full">
               {dmConversation ? (
                 <Link
@@ -115,7 +109,6 @@ export default function UserProfilePage({ user }: UserProfilePageProps) {
           </div>
         </motion.div>
 
-        {/* ── Info ── */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -131,7 +124,6 @@ export default function UserProfilePage({ user }: UserProfilePageProps) {
           <div className="pb-2" />
         </motion.div>
 
-        {/* ── Shared groups ── */}
         {sharedGroups.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}

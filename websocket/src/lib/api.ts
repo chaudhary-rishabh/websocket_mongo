@@ -1,7 +1,5 @@
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
 
-/* ─── Token store ────────────────────────────────────────────────────── */
-
 interface TokenStore {
   accessToken: string
   refreshToken: string
@@ -18,8 +16,6 @@ export function setAuth(store: TokenStore): void {
 export function clearAuth(): void {
   _store = null
 }
-
-/* ─── Single-flight token refresh ───────────────────────────────────── */
 
 async function doRefresh(): Promise<string | null> {
   if (!_store) return null
@@ -53,8 +49,6 @@ async function doRefresh(): Promise<string | null> {
 
   return _refreshing
 }
-
-/* ─── Core fetch with 401 retry ─────────────────────────────────────── */
 
 async function apiFetch<T>(
   path: string,
@@ -90,8 +84,6 @@ async function apiFetch<T>(
   return json.data as T
 }
 
-/* ─── Raw fetch wrapper with 401 retry (for components using raw json) ─ */
-
 export async function authFetch(
   url: string,
   options: RequestInit = {},
@@ -115,8 +107,6 @@ export async function authFetch(
 
   return res
 }
-
-/* ─── Typed API helpers ──────────────────────────────────────────────── */
 
 export const api = {
   get: <T>(path: string, token?: string) =>

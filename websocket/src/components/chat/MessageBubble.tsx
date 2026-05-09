@@ -30,8 +30,6 @@ type Reaction = { emoji: string; count: number }
 
 const WAVEFORM = [3, 6, 9, 7, 4, 8, 11, 6, 3, 7, 10, 5, 8, 6, 3, 7, 11, 6, 4, 8, 7, 9, 3, 5, 8]
 
-/* ─── Shared helpers ──────────────────────────────────────────────────── */
-
 function MetaRow({
   viewCount, timestamp, sent, isPending, isRead, editedAt,
 }: {
@@ -44,16 +42,13 @@ function MetaRow({
       )}
       {sent ? (
         isPending ? (
-          /* Single grey tick — optimistic, not yet confirmed */
           <Check className="w-3 h-3 text-[#9CA3AF]" strokeWidth={2.5} />
         ) : isRead ? (
-          /* Double blue ticks — read by at least one person */
           <span className="flex items-center">
             <Check className="w-3 h-3 text-[#2563EB] -mr-1.5" strokeWidth={2.5} />
             <Check className="w-3 h-3 text-[#2563EB]" strokeWidth={2.5} />
           </span>
         ) : (
-          /* Double grey ticks — delivered/sent, not yet read */
           <span className="flex items-center">
             <Check className="w-3 h-3 text-[#9CA3AF] -mr-1.5" strokeWidth={2.5} />
             <Check className="w-3 h-3 text-[#9CA3AF]" strokeWidth={2.5} />
@@ -133,7 +128,6 @@ function SelectCircle({ isSelected }: { isSelected: boolean }) {
   )
 }
 
-/* ─── Main component ──────────────────────────────────────────────────── */
 export default function MessageBubble({
   message, sender, isMe,
   isSelectMode = false,
@@ -145,14 +139,12 @@ export default function MessageBubble({
   const [reactions,  setReactions]  = useState<Reaction[]>(message.reactions ?? [])
   const [pickerOpen, setPickerOpen] = useState(false)
 
-  // ── Edit state ────────────────────────────────────────────────────────
   const [isEditing,  setIsEditing]  = useState(false)
   const [editValue,  setEditValue]  = useState('')
   const [isSaving,   setIsSaving]   = useState(false)
   const [editError,  setEditError]  = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // Auto-focus and select-all when edit mode opens
   useEffect(() => {
     if (isEditing && textareaRef.current) {
       textareaRef.current.focus()
@@ -216,7 +208,6 @@ export default function MessageBubble({
     }
   }
 
-  /* ─── Text ─── */
   if (message.type === 'text') {
     return (
       <>
@@ -238,7 +229,6 @@ export default function MessageBubble({
               isEditing && 'ring-2 ring-[#2563EB]/40',
             )}>
               {isEditing ? (
-                /* ── Inline edit ── */
                 <div className="flex flex-col gap-2 min-w-[200px]">
                   <textarea
                     ref={textareaRef}
@@ -293,7 +283,6 @@ export default function MessageBubble({
     )
   }
 
-  /* ─── Image ─── */
   if (message.type === 'image') {
     return (
       <>
@@ -334,7 +323,6 @@ export default function MessageBubble({
     )
   }
 
-  /* ─── Voice ─── */
   return (
     <>
       <div className={cn('group flex items-end gap-1.5 max-w-[75%]', isMe && 'flex-row-reverse')}>

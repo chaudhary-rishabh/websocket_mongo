@@ -66,7 +66,6 @@ export default function RealUserProfile({ userId }: { userId: string }) {
   return (
     <div className="min-h-screen bg-white bg-texture">
 
-      {/* ── Top bar ── */}
       <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-[#BFDBFE] px-4 py-3 flex items-center gap-3">
         <Link href="/chat" className="p-2 -ml-1 rounded-full hover:bg-[#DBEAFE] transition-colors">
           <ArrowLeft className="w-4 h-4 text-[#6B7280]" />
@@ -76,7 +75,6 @@ export default function RealUserProfile({ userId }: { userId: string }) {
 
       <div className="max-w-md mx-auto px-4 py-6 flex flex-col gap-3">
 
-        {/* ── Hero card ── */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -133,7 +131,6 @@ export default function RealUserProfile({ userId }: { userId: string }) {
           </div>
         </motion.div>
 
-        {/* ── Info card ── */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}

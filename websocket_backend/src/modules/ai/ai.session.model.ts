@@ -1,17 +1,9 @@
 import mongoose, { type Document, type Model, Schema } from 'mongoose'
 
-/**
- * AiSession — one chat thread in the AI assistant.
- * Users can have multiple sessions ("New Chat" creates a new one).
- *
- * MIGRATION NOTE: If you had the old single-session-per-user schema, drop the
- * unique index before starting the server:
- *   db.aisessions.dropIndex("userId_1")
- */
 export interface IAiSession extends Document {
   _id: mongoose.Types.ObjectId
-  userId: mongoose.Types.ObjectId   // ref: User
-  title?: string                    // auto-set from first user message (max 80 chars)
+  userId: mongoose.Types.ObjectId
+  title?: string
   messageCount: number
   lastActivityAt: Date
   createdAt: Date

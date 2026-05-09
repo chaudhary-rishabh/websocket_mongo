@@ -1,5 +1,3 @@
-// ─── API shapes (match backend MongoDB field names exactly) ─────────────────
-
 export interface ApiUser {
   _id: string
   username: string
@@ -22,7 +20,6 @@ export interface ApiMessageSender {
 export interface ApiMessage {
   _id: string
   conversationId: string
-  /** Populated user object from API/WS; raw string ID for optimistic messages */
   senderId: ApiMessageSender | string
   type: 'text' | 'image' | 'voice' | 'file'
   content: string
@@ -33,7 +30,6 @@ export interface ApiMessage {
   createdAt: string
   updatedAt: string
   editedAt?: string
-  /** Present only before server confirms (optimistic UI) */
   tempId?: string
   isPending?: boolean
 }
@@ -61,8 +57,6 @@ export interface PopulatedMember {
   isAdmin: boolean
   isMe: boolean
 }
-
-// ─── WebSocket events ────────────────────────────────────────────────────────
 
 export type ServerEvent =
   | { type: 'CONNECTED'; userId: string }

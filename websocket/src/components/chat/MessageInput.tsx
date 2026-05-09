@@ -35,11 +35,9 @@ export default function MessageInput({ onSend, onTypingStart, onTypingStop }: Me
         typingRef.current = true
         onTypingStart?.()
       }
-      // Reset debounce timer
       if (typingTimer.current) clearTimeout(typingTimer.current)
       typingTimer.current = setTimeout(triggerTypingStop, TYPING_STOP_DELAY)
     } else {
-      // Empty input — stop typing immediately
       if (typingTimer.current) clearTimeout(typingTimer.current)
       triggerTypingStop()
     }

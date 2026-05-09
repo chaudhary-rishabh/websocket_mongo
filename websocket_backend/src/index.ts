@@ -9,7 +9,6 @@ import { createWebSocketServer } from './websocket/ws.server.js'
 import { logger } from './shared/utils/logger.js'
 
 async function bootstrap(): Promise<void> {
-  // Initialize config dependencies in order
   await initJWT()
   initCloudinary()
   await connectDB()
@@ -24,7 +23,6 @@ async function bootstrap(): Promise<void> {
     )
   })
 
-  // Graceful shutdown
   const shutdown = (signal: string) => {
     logger.info({ signal }, 'Shutdown signal received')
     httpServer.close(() => {

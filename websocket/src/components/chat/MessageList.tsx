@@ -63,15 +63,10 @@ export default function MessageList({
   useEffect(() => { hasMoreRef.current = hasMore }, [hasMore])
   useEffect(() => { onLoadMoreRef.current = onLoadMore }, [onLoadMore])
 
-  // ── Scroll-height snapshot before pagination prepend ──────────────────
-  // Captured the moment the IntersectionObserver fires (before any re-render).
   const scrollHeightBeforeRef = useRef(0)
 
-  // ── Track the first real message ID to detect prepends vs appends ──────
   const prevFirstMsgIdRef = useRef('')
 
-  // ── Restore scroll position after older messages are prepended ─────────
-  // useLayoutEffect fires synchronously after DOM mutations, before paint.
   useLayoutEffect(() => {
     const firstId = realtimeMessages[0]?._id ?? ''
     if (
@@ -89,7 +84,6 @@ export default function MessageList({
     prevFirstMsgIdRef.current = firstId
   }, [realtimeMessages])
 
-  // ── Track whether user is near the bottom (to gate auto-scroll) ────────
   const isNearBottomRef = useRef(true)
   const handleScroll = () => {
     const el = containerRef.current
@@ -97,14 +91,12 @@ export default function MessageList({
     isNearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120
   }
 
-  // ── Auto-scroll to bottom only for new arrivals, not for pagination ─────
   useEffect(() => {
     if (isNearBottomRef.current) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
   }, [mockMessages, realtimeMessages, typingUsernames])
 
-  // ── IntersectionObserver on top sentinel → trigger pagination ──────────
   useEffect(() => {
     const sentinel  = topSentinelRef.current
     const container = containerRef.current
@@ -113,7 +105,6 @@ export default function MessageList({
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting && !isLoadingMoreRef.current && hasMoreRef.current && onLoadMoreRef.current) {
-          // Snapshot scroll height before the state update causes a re-render
           scrollHeightBeforeRef.current = container.scrollHeight
           onLoadMoreRef.current()
         }
@@ -123,7 +114,7 @@ export default function MessageList({
 
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, []) // Set up once; uses refs for all mutable values
+  }, [])
 
   return (
     <div
@@ -131,24 +122,20 @@ export default function MessageList({
       onScroll={handleScroll}
       className="flex-1 overflow-y-auto chat-scrollbar px-4 py-4 flex flex-col gap-4"
     >
-      {/* ── Top sentinel — IntersectionObserver watches this ── */}
       <div ref={topSentinelRef} />
 
-      {/* ── Loading spinner for older messages ── */}
       {isLoadingMore && (
         <div className="flex justify-center py-2">
           <Loader2 className="w-4 h-4 animate-spin text-[#6B7280]" />
         </div>
       )}
 
-      {/* ── "No more messages" hint ── */}
       {!hasMore && realtimeMessages.length > 0 && (
         <p className="text-center text-[10px] text-[#9CA3AF] py-1 select-none">
           Beginning of conversation
         </p>
       )}
 
-      {/* ── Mock messages ── */}
       {mockMessages.map((message, index) => {
         const isMe    = message.senderId === CURRENT_USER.id
         const sender  = isMe ? CURRENT_USER : getUserById(message.senderId)
@@ -179,7 +166,6 @@ export default function MessageList({
         )
       })}
 
-      {/* ── Real-time messages ── */}
       {realtimeMessages
         .filter((m) => !deletedIds.has(m._id))
         .map((message, index) => {
@@ -245,7 +231,6 @@ export default function MessageList({
           )
         })}
 
-      {/* ── Typing indicator ── */}
       <TypingIndicator usernames={typingUsernames} />
 
       <div ref={bottomRef} />

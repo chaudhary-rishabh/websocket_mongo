@@ -17,8 +17,7 @@ import { useChatStore } from '@/lib/store'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
 
-/* ─── Toggle ─────────────────────────────────────────────────────────── */
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  ({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
       onClick={() => onChange(!checked)}
@@ -39,7 +38,6 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
   )
 }
 
-/* ─── Setting row ────────────────────────────────────────────────────── */
 function Row({
   icon: Icon, label, sublabel, right, danger,
 }: {
@@ -73,7 +71,6 @@ function SectionLabel({ children }: { children: string }) {
   )
 }
 
-/* ─── Main ───────────────────────────────────────────────────────────── */
 export default function ProfilePage() {
   const { data: session, update: updateSession } = useSession()
   const { realConversations, wsConnected } = useChatStore()
@@ -91,7 +88,6 @@ export default function ProfilePage() {
   const [saveError,      setSaveError]      = useState('')
   const [loggingOut,     setLoggingOut]     = useState(false)
 
-  /* Populate from session once available */
   useEffect(() => {
     if (session?.user) {
       const dn = session.user.displayName || session.user.name || ''
@@ -117,7 +113,6 @@ export default function ProfilePage() {
       if (!res.ok || !json.success) {
         setSaveError(json?.error?.message ?? 'Failed to save changes.')
       } else {
-        // Trigger session refresh so UI reflects new values
         await updateSession()
       }
     } catch {
@@ -146,7 +141,6 @@ export default function ProfilePage() {
     await logoutAction()
   }
 
-  /* Derive initials from displayName */
   const initials = displayName
     .split(' ')
     .map((w) => w[0])
@@ -159,7 +153,6 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-white bg-texture">
 
-      {/* ── Top bar ── */}
       <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-[#BFDBFE] px-4 py-3 flex items-center gap-3">
         <Link href="/chat" className="p-2 -ml-1 rounded-full hover:bg-[#DBEAFE] transition-colors">
           <ArrowLeft className="w-4 h-4 text-[#6B7280]" />
@@ -170,21 +163,16 @@ export default function ProfilePage() {
 
       <div className="max-w-md mx-auto px-4 py-6 flex flex-col gap-3">
 
-        {/* ── Save error ── */}
         {saveError && (
           <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-2xl">
             {saveError}
           </div>
         )}
 
-        {/* ── Hero card ── */}
         <div className="bg-[#EFF6FF] rounded-[25px] overflow-hidden border border-[#BFDBFE]">
-          {/* Gradient strip */}
           <div className="h-20 bg-gradient-to-br from-[#3B82F6] to-[#93C5FD]" />
 
-          {/* Avatar + identity */}
           <div className="px-5 pb-5 flex flex-col items-center -mt-10">
-            {/* Avatar */}
             <motion.div className="relative cursor-pointer">
               <div className="w-20 h-20 rounded-full ring-4 ring-[#EFF6FF] overflow-hidden shadow-md">
                 {avatarUrl ? (
@@ -205,7 +193,6 @@ export default function ProfilePage() {
               </motion.div>
             </motion.div>
 
-            {/* Display Name */}
             <div className="mt-3 flex items-center gap-1.5">
               {editingName ? (
                 <>
@@ -236,7 +223,6 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* Bio */}
             <div className="mt-1 flex items-center gap-1.5 max-w-xs">
               {editingBio ? (
                 <>
@@ -267,7 +253,6 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* Online pill */}
             <div className={cn(
               'mt-3 flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full',
               wsConnected ? 'text-emerald-700 bg-emerald-50' : 'text-[#6B7280] bg-[#F3F4F6]',
@@ -277,7 +262,6 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Stats */}
           <div className="grid grid-cols-3 border-t border-[#BFDBFE]">
             {[
               { value: String(realConversations.length), label: 'Chats'    },
@@ -292,7 +276,6 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* ── Settings ── */}
         <div className="bg-[#EFF6FF] rounded-[25px] overflow-hidden border border-[#BFDBFE]">
           <SectionLabel>Notifications</SectionLabel>
           <Row
@@ -319,7 +302,6 @@ export default function ProfilePage() {
           <div className="pb-2" />
         </div>
 
-        {/* ── Logout ── */}
         <button
           onClick={handleLogout}
           disabled={loggingOut}

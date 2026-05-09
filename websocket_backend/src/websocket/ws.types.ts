@@ -7,8 +7,6 @@ export interface AuthenticatedSocket extends WebSocket {
   isAlive: boolean
 }
 
-// ─── Client → Server ────────────────────────────────────────────────────────
-
 export type ClientEvent =
   | { type: 'JOIN_CONVERSATION'; conversationId: string }
   | { type: 'LEAVE_CONVERSATION'; conversationId: string }
@@ -18,8 +16,6 @@ export type ClientEvent =
   | { type: 'MARK_READ'; conversationId: string }
   | { type: 'ADD_REACTION'; messageId: string; conversationId: string; emoji: string }
   | { type: 'PING' }
-
-// ─── Server → Client ────────────────────────────────────────────────────────
 
 export type ServerEvent =
   | { type: 'CONNECTED'; userId: string }

@@ -8,7 +8,6 @@ const hoursAgo = (h: number) =>
 const daysAgo = (d: number) =>
   new Date(now.getTime() - d * 86400 * 1000).toISOString()
 
-// ─── Current User ──────────────────────────────────────────────────────────
 export const CURRENT_USER: User = {
   id: 'me',
   name: 'Jordan Blake',
@@ -19,7 +18,6 @@ export const CURRENT_USER: User = {
   role: 'member',
 }
 
-// ─── Mock Users ────────────────────────────────────────────────────────────
 export const USERS: User[] = [
   {
     id: 'user-1',
@@ -102,7 +100,6 @@ export function getUserById(id: string): User | undefined {
   return USERS.find((u) => u.id === id)
 }
 
-// ─── Conversations ─────────────────────────────────────────────────────────
 export const CONVERSATIONS: Conversation[] = [
   {
     id: 'conv-1',
@@ -158,9 +155,6 @@ export const CONVERSATIONS: Conversation[] = [
   },
 ]
 
-// ─── Messages ──────────────────────────────────────────────────────────────
-
-// Design Chat messages (conv-1) — matches reference image
 const designChatMessages: Message[] = [
   {
     id: 'msg-1',
@@ -241,7 +235,6 @@ const designChatMessages: Message[] = [
   },
 ]
 
-// DM with Alice (conv-2)
 const aliceMessages: Message[] = [
   {
     id: 'msg-a1',
@@ -295,7 +288,6 @@ const aliceMessages: Message[] = [
   },
 ]
 
-// Dev Team (conv-3)
 const devTeamMessages: Message[] = [
   {
     id: 'msg-d1',
@@ -349,7 +341,6 @@ const devTeamMessages: Message[] = [
   },
 ]
 
-// DM with Tom (conv-4)
 const tomMessages: Message[] = [
   {
     id: 'msg-t1',

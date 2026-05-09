@@ -64,7 +64,6 @@ class WSClient {
         const event = JSON.parse(ev.data as string) as ServerEvent
         this.handlers.forEach((h) => h(event))
       } catch {
-        // ignore malformed frames
       }
     }
 
@@ -74,7 +73,6 @@ class WSClient {
     }
 
     this.socket.onerror = () => {
-      // onclose will fire next and handle reconnect
     }
   }
 
@@ -97,5 +95,4 @@ class WSClient {
   }
 }
 
-// Singleton — one WS connection for the whole app
 export const wsClient = new WSClient()

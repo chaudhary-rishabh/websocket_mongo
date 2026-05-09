@@ -25,7 +25,6 @@ export default function WSProvider() {
     updateConversationLastMessage,
   } = useChatStore()
 
-  // Register token store for 401-retry; sign out if refresh token is exhausted
   useEffect(() => {
     if (!session?.accessToken || !session?.refreshToken) return
 
@@ -47,7 +46,6 @@ export default function WSProvider() {
     }
   }, [session?.accessToken, session?.refreshToken, session?.error, update])
 
-  // Load real conversations (with 401 retry)
   useEffect(() => {
     if (!session?.accessToken) return
     authFetch(`${API}/api/v1/conversations`, {}, session.accessToken)
@@ -60,7 +58,6 @@ export default function WSProvider() {
       .catch(() => { toast.error('Failed to load conversations') })
   }, [session?.accessToken, setRealConversations])
 
-  // Connect / disconnect WS
   useEffect(() => {
     if (!session?.accessToken) return
 

@@ -2,7 +2,7 @@ import type { Request } from 'express'
 import type { JWTPayload } from 'jose'
 
 export interface AuthPayload extends JWTPayload {
-  sub: string       // userId
+  sub: string
   email: string
   username: string
   role: 'user' | 'admin'

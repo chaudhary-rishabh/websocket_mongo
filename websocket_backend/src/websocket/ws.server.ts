@@ -17,7 +17,6 @@ import { logger } from '../shared/utils/logger.js'
 export function createWebSocketServer(httpServer: Server): WebSocketServer {
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' })
 
-  // Heartbeat — detect stale connections
   const heartbeatInterval = setInterval(() => {
     wss.clients.forEach((rawSocket) => {
       const socket = rawSocket as AuthenticatedSocket
@@ -36,7 +35,6 @@ export function createWebSocketServer(httpServer: Server): WebSocketServer {
     const socket = rawSocket as AuthenticatedSocket
     socket.isAlive = true
 
-    // ── Auth via query token ─────────────────────────────────────────────
     const url = new URL(req.url ?? '', `http://${req.headers.host}`)
     const token = url.searchParams.get('token')
 

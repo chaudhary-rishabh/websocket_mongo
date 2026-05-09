@@ -2,7 +2,6 @@ import NextAuth, { type DefaultSession } from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import type { JWT } from '@auth/core/jwt'
 
-/* ─── Type augmentation ──────────────────────────────────────────────── */
 declare module 'next-auth' {
   interface Session {
     user: {
@@ -55,7 +54,6 @@ function decodeJwtExpiry(token: string): number {
     ) as { exp?: number }
     return (payload.exp ?? 0) * 1000
   } catch {
-    // Fallback: treat as valid for ~14 minutes from now
     return Date.now() + 14 * 60 * 1000
   }
 }
@@ -131,7 +129,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
   callbacks: {
     async jwt({ token, user, trigger, session: sessionData }) {
-      // Manual session update called from client after token refresh
       if (trigger === 'update' && sessionData) {
         const update = sessionData as { accessToken?: string; refreshToken?: string }
         if (update.accessToken) {
@@ -143,7 +140,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return token
       }
 
-      // First sign-in — populate token from authorize() result
       if (user) {
         token.accessToken = user.accessToken
         token.refreshToken = user.refreshToken
@@ -157,17 +153,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return token
       }
 
-      // Migrate sessions created before accessTokenExpiry was added
       if (!token.accessTokenExpiry && token.accessToken) {
         token.accessTokenExpiry = decodeJwtExpiry(token.accessToken)
       }
 
-      // Token still valid (60 s buffer) — return as is
       if (token.accessTokenExpiry && Date.now() < token.accessTokenExpiry - 60_000) {
         return token
       }
 
-      // Token expired or close to expiry — refresh via backend
       return refreshAccessToken(token)
     },
 

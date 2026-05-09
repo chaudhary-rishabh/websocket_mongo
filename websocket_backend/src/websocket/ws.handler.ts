@@ -53,7 +53,7 @@ export async function handleMessage(socket: AuthenticatedSocket, raw: string): P
           ...(event.mediaUrl && { mediaUrl: event.mediaUrl }),
           ...(event.replyTo && { replyTo: event.replyTo }),
         })
-        const msgObj = // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const msgObj =
 (msg as any).toObject?.() as Record<string, unknown> ?? (msg as unknown as Record<string, unknown>)
         broadcastToRoomAll(event.conversationId, {
           type: 'NEW_MESSAGE',
@@ -91,7 +91,7 @@ export async function handleMessage(socket: AuthenticatedSocket, raw: string): P
 
       case 'ADD_REACTION': {
         const msg = await addReaction(event.messageId, socket.userId, { emoji: event.emoji })
-        const msgObj = // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const msgObj =
 (msg as any).toObject?.() as Record<string, unknown> ?? (msg as unknown as Record<string, unknown>)
         broadcastToRoomAll(event.conversationId, { type: 'REACTION_UPDATED', message: msgObj })
         break
@@ -110,7 +110,6 @@ export async function handleConnect(socket: AuthenticatedSocket): Promise<void> 
   await setOnlineStatus(socket.userId, true)
   send(socket, { type: 'CONNECTED', userId: socket.userId })
 
-  // Auto-join all conversation rooms the user belongs to and broadcast presence
   try {
     const conversations = await listConversations(socket.userId)
     for (const conv of conversations) {

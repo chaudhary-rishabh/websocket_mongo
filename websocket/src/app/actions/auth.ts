@@ -11,7 +11,6 @@ export async function logoutAction() {
         headers: { Authorization: `Bearer ${session.accessToken}` },
       })
     } catch {
-      // Backend logout failure is non-fatal — still clear local session
     }
   }
   await signOut({ redirectTo: '/login' })

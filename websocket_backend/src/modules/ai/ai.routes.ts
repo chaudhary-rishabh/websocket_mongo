@@ -18,22 +18,14 @@ import { AiMessage } from './ai.message.model.js'
 const router = Router()
 router.use(authenticate())
 
-// ─── DB helpers ───────────────────────────────────────────────────────────────
-
-/** Create a brand-new AI session for a user. */
 async function createSession(userId: string) {
   return AiSession.create({ userId, messageCount: 0, lastActivityAt: new Date() })
 }
 
-/** Find a session that belongs to a user; returns null if not found / wrong owner. */
 async function findSession(sessionId: string, userId: string) {
   return AiSession.findOne({ _id: sessionId, userId })
 }
 
-/**
- * Persist one message turn.
- * Also auto-sets the session title from the first user message if not yet set.
- */
 async function persist(
   sessionId: string,
   userId: string,
@@ -44,7 +36,6 @@ async function persist(
 ) {
   await AiMessage.create({ sessionId, userId, role, content, type, ...(metadata !== undefined && { metadata }) })
 
-  // Auto-title from first user message
   if (role === 'user') {
     await AiSession.updateOne(
       { _id: sessionId, title: { $exists: false } },
@@ -57,8 +48,6 @@ async function persist(
     lastActivityAt: new Date(),
   })
 }
-
-// ─── SSE helpers ──────────────────────────────────────────────────────────────
 
 async function handleUpstreamError(upstream: globalThis.Response, res: Response, tag: string): Promise<void> {
   const body = await upstream.text().catch(() => '<unreadable>')
@@ -103,14 +92,13 @@ async function pipeStream(
           accumulated += content
           res.write(`data: ${JSON.stringify({ content })}\n\n`)
         }
-      } catch {/* skip malformed */}
+      } catch {}
     }
   }
 
   if (accumulated.trim()) await onDone(accumulated)
 }
 
-// ─── Analysis system prompt ───────────────────────────────────────────────────
 const ANALYSIS_SYSTEM_PROMPT = `You are an expert psychologist, emotional intelligence specialist, and behavioural analyst embedded inside a private chat application.
 
 You will be given a chronological sequence of real chat messages involving a specific person. Your job is to produce a warm, empathetic, and insightful analysis of that person based ONLY on what is written in those messages.
@@ -142,8 +130,6 @@ Rules you must follow:
 - Write in clear, human language — avoid clinical jargon
 - Keep the total response focused and readable`
 
-// ─── GET /api/v1/ai/sessions ──────────────────────────────────────────────────
-/** List all AI sessions for the authenticated user, newest first. */
 router.get('/sessions', aiReadRateLimit, async (req: Request, res: Response): Promise<void> => {
   const { sub } = (req as AuthRequest).user
   const sessions = await AiSession.find({ userId: sub })
@@ -152,8 +138,6 @@ router.get('/sessions', aiReadRateLimit, async (req: Request, res: Response): Pr
   res.json({ success: true, data: { sessions } })
 })
 
-// ─── POST /api/v1/ai/sessions ────────────────────────────────────────────────
-/** Create a new AI session (called by "New Chat" button). */
 router.post('/sessions', aiSessionMutateRateLimit, async (req: Request, res: Response): Promise<void> => {
   const { sub } = (req as AuthRequest).user
   try {
@@ -165,8 +149,6 @@ router.post('/sessions', aiSessionMutateRateLimit, async (req: Request, res: Res
   }
 })
 
-// ─── DELETE /api/v1/ai/sessions ───────────────────────────────────────────────
-/** Delete ALL sessions and messages for the authenticated user (Clear All). */
 router.delete('/sessions', aiSessionMutateRateLimit, async (req: Request, res: Response): Promise<void> => {
   const { sub } = (req as AuthRequest).user
   const sessions = await AiSession.find({ userId: sub }).select('_id').lean()
@@ -176,8 +158,6 @@ router.delete('/sessions', aiSessionMutateRateLimit, async (req: Request, res: R
   res.json({ success: true, data: {} })
 })
 
-// ─── DELETE /api/v1/ai/sessions/:sessionId ────────────────────────────────────
-/** Delete one session and all its messages. */
 router.delete('/sessions/:sessionId', aiSessionMutateRateLimit, async (req: Request, res: Response): Promise<void> => {
   const { sub } = (req as AuthRequest).user
   const { sessionId } = req.params as { sessionId: string }
@@ -193,11 +173,6 @@ router.delete('/sessions/:sessionId', aiSessionMutateRateLimit, async (req: Requ
   res.json({ success: true, data: {} })
 })
 
-// ─── GET /api/v1/ai/messages ──────────────────────────────────────────────────
-/**
- * Returns messages for a specific session (or most-recent session if no sessionId).
- * Supports cursor-based pagination via ?before=<messageId>.
- */
 router.get('/messages', aiReadRateLimit, async (req: Request, res: Response): Promise<void> => {
   const { sub } = (req as AuthRequest).user
   const limit     = Math.min(Number(req.query['limit'] ?? 100), 200)
@@ -227,11 +202,6 @@ router.get('/messages', aiReadRateLimit, async (req: Request, res: Response): Pr
   res.json({ success: true, data: { messages, hasMore } })
 })
 
-// ─── POST /api/v1/ai/chat ─────────────────────────────────────────────────────
-/**
- * Body: { sessionId: string; messages: { role: 'user'|'assistant'; content: string }[] }
- * Persists the new user message and streams the assistant reply via SSE.
- */
 router.post('/chat', aiChatRateLimit, async (req: Request, res: Response): Promise<void> => {
   if (!env.DEEPSEEK_API_KEY) {
     res.status(503).json({ success: false, error: { code: 'AI_UNAVAILABLE', message: 'AI service is not configured' } })
@@ -255,7 +225,6 @@ router.post('/chat', aiChatRateLimit, async (req: Request, res: Response): Promi
     return
   }
 
-  // Resolve or create session
   let session: Awaited<ReturnType<typeof createSession>>
   if (providedSessionId) {
     const found = await findSession(providedSessionId, sub)
@@ -270,10 +239,8 @@ router.post('/chat', aiChatRateLimit, async (req: Request, res: Response): Promi
 
   await persist(session._id.toString(), sub, 'user', newUserMessage.content, 'chat')
 
-  // Fetch user profile to personalise the system prompt
   const currentUser = await User.findById(sub).select('displayName username bio createdAt').lean().catch(() => null)
 
-  // SSE setup
   res.setHeader('Content-Type', 'text/event-stream')
   res.setHeader('Cache-Control', 'no-cache')
   res.setHeader('Connection', 'keep-alive')
@@ -331,11 +298,6 @@ router.post('/chat', aiChatRateLimit, async (req: Request, res: Response): Promi
   if (!res.writableEnded) res.end()
 })
 
-// ─── POST /api/v1/ai/analyze-user ────────────────────────────────────────────
-/**
- * Body: { sessionId: string; userId?: string; userLabel?: string }
- * Fetches the target user's chat history, runs personality analysis, persists both turns.
- */
 router.post('/analyze-user', aiAnalyzeRateLimit, async (req: Request, res: Response): Promise<void> => {
   if (!env.DEEPSEEK_API_KEY) {
     res.status(503).json({ success: false, error: { code: 'AI_UNAVAILABLE', message: 'AI service is not configured' } })
@@ -352,7 +314,6 @@ router.post('/analyze-user', aiAnalyzeRateLimit, async (req: Request, res: Respo
   const isSelf   = !userId || userId === 'me' || userId === sub
   const targetId = isSelf ? sub : userId!
 
-  // Resolve target user
   const targetUser = await User.findById(targetId).lean().catch(() => null)
   if (!targetUser) {
     res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'User not found' } })
@@ -360,7 +321,6 @@ router.post('/analyze-user', aiAnalyzeRateLimit, async (req: Request, res: Respo
   }
   const targetName = targetUser.displayName
 
-  // Find shared conversations
   const convFilter = isSelf
     ? { members: targetId }
     : { members: { $all: [sub, targetId] } }
@@ -374,7 +334,6 @@ router.post('/analyze-user', aiAnalyzeRateLimit, async (req: Request, res: Respo
     return
   }
 
-  // Fetch chronological message history
   const convIds    = conversations.map((c) => c._id)
   const rawMessages = await Message.find({
     conversationId: { $in: convIds },
@@ -391,7 +350,6 @@ router.post('/analyze-user', aiAnalyzeRateLimit, async (req: Request, res: Respo
     return
   }
 
-  // Format messages grouped by conversation
   const convMap = new Map(conversations.map((c) => [c._id.toString(), c]))
   const grouped = new Map<string, typeof rawMessages>()
   for (const msg of rawMessages) {
@@ -420,7 +378,6 @@ router.post('/analyze-user', aiAnalyzeRateLimit, async (req: Request, res: Respo
     ? `Please analyse ME (${targetName}) based on my chat history below.\n\n${messageBlock}`
     : `Please analyse ${targetName} based on their chat history below.\n\n${messageBlock}`
 
-  // Resolve or create session
   const requestLabel = userLabel ?? (isSelf ? `Analyse my own behaviour & emotions` : `Analyse ${targetName}'s messages`)
 
   let session: Awaited<ReturnType<typeof createSession>>
@@ -437,7 +394,6 @@ router.post('/analyze-user', aiAnalyzeRateLimit, async (req: Request, res: Respo
 
   await persist(session._id.toString(), sub, 'user', requestLabel, 'analysis')
 
-  // SSE setup
   res.setHeader('Content-Type', 'text/event-stream')
   res.setHeader('Cache-Control', 'no-cache')
   res.setHeader('Connection', 'keep-alive')

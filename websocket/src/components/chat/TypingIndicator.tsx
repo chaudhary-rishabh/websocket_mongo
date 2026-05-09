@@ -24,7 +24,6 @@ export default function TypingIndicator({ usernames }: TypingIndicatorProps) {
           transition={{ type: 'spring', stiffness: 400, damping: 32 }}
           className="flex items-end gap-2 justify-start"
         >
-          {/* Bubble with dots */}
           <div className="flex items-center gap-[5px] bg-white rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm border border-[#BFDBFE]">
             {[0, 1, 2].map((i) => (
               <motion.span
@@ -40,7 +39,6 @@ export default function TypingIndicator({ usernames }: TypingIndicatorProps) {
               />
             ))}
           </div>
-          {/* Label */}
           <span className="text-xs text-[#6B7280] pb-1">{label}…</span>
         </motion.div>
       )}

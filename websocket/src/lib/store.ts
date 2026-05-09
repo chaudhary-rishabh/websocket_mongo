@@ -32,6 +32,7 @@ interface ChatStore {
   replaceTempMessage: (convId: string, tempId: string, msg: ApiMessage) => void
   prependMessages: (convId: string, msgs: ApiMessage[]) => void
   markMessagesRead: (convId: string, userId: string, readAt: string) => void
+  updateMessage: (convId: string, msg: ApiMessage) => void
 
   // ── Typing — convId → { userId: displayName } ────────────────────────
   typingUsers: Record<string, Record<string, string>>
@@ -45,6 +46,8 @@ interface ChatStore {
   // ── Real conversations from API ──────────────────────────────────────
   realConversations: ApiConversation[]
   setRealConversations: (convs: ApiConversation[]) => void
+  clearUnreadCount: (convId: string) => void
+  updateConversationLastMessage: (convId: string, msg: ApiMessage) => void
 
   // ── Message pagination (keyed by conversationId) ─────────────────────
   messagePagination: Record<string, { nextCursor?: string; hasMore: boolean }>
@@ -114,6 +117,13 @@ export const useChatStore = create<ChatStore>((set) => ({
       })
       return { realtimeMessages: { ...s.realtimeMessages, [convId]: updated } }
     }),
+  updateMessage: (convId, msg) =>
+    set((s) => {
+      const msgs = s.realtimeMessages[convId]
+      if (!msgs) return s
+      const updated = msgs.map((m) => (m._id === msg._id ? msg : m))
+      return { realtimeMessages: { ...s.realtimeMessages, [convId]: updated } }
+    }),
 
   // Typing
   typingUsers: {},
@@ -139,6 +149,20 @@ export const useChatStore = create<ChatStore>((set) => ({
   // Real conversations
   realConversations: [],
   setRealConversations: (convs) => set({ realConversations: convs }),
+  clearUnreadCount: (convId) =>
+    set((s) => ({
+      realConversations: s.realConversations.map((c) =>
+        c._id === convId ? { ...c, unreadCount: 0 } : c,
+      ),
+    })),
+  updateConversationLastMessage: (convId, msg) =>
+    set((s) => {
+      const idx = s.realConversations.findIndex((c) => c._id === convId)
+      if (idx === -1) return s
+      const updated = { ...s.realConversations[idx], lastMessage: msg, lastMessageTime: msg.createdAt }
+      const rest = s.realConversations.filter((_, i) => i !== idx)
+      return { realConversations: [updated, ...rest] }
+    }),
 
   // Message pagination
   messagePagination: {},

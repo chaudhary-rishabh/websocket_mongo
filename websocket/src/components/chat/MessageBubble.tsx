@@ -1,15 +1,22 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Play, Eye, SmilePlus, Check } from 'lucide-react'
+import { Play, Eye, SmilePlus, Check, Pencil, Loader2 } from 'lucide-react'
 import { AnimatePresence } from 'framer-motion'
+import { useSession } from 'next-auth/react'
 import type { Message, User } from '@/lib/schemas'
 import { cn, formatMessageTime } from '@/lib/utils'
 import { CURRENT_USER } from '@/lib/mock-data'
+import { wsClient } from '@/lib/ws-client'
+import { authFetch } from '@/lib/api'
+import { useChatStore } from '@/lib/store'
 import Avatar from '@/components/ui/Avatar'
 import EmojiPicker from './EmojiPicker'
+
+const REAL_ID = /^[0-9a-f]{24}$/i
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
 
 interface MessageBubbleProps {
   message: Message
@@ -26,12 +33,15 @@ const WAVEFORM = [3, 6, 9, 7, 4, 8, 11, 6, 3, 7, 10, 5, 8, 6, 3, 7, 11, 6, 4, 8,
 /* ─── Shared helpers ──────────────────────────────────────────────────── */
 
 function MetaRow({
-  viewCount, timestamp, sent, isPending, isRead,
+  viewCount, timestamp, sent, isPending, isRead, editedAt,
 }: {
-  viewCount: number; timestamp: string; sent?: boolean; isPending?: boolean; isRead?: boolean
+  viewCount: number; timestamp: string; sent?: boolean; isPending?: boolean; isRead?: boolean; editedAt?: string
 }) {
   return (
     <div className={cn('flex items-center gap-1 text-[10px] mt-1 justify-end', sent ? 'text-[#3B82F6]/70' : 'text-[#6B7280]')}>
+      {editedAt && (
+        <span className="italic opacity-50 mr-0.5">edited</span>
+      )}
       {sent ? (
         isPending ? (
           /* Single grey tick — optimistic, not yet confirmed */
@@ -100,6 +110,18 @@ function ReactionTrigger({ isMe, onClick }: { isMe: boolean; onClick: () => void
   )
 }
 
+function EditTrigger({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onClick() }}
+      className="flex-shrink-0 opacity-0 group-hover:opacity-100 p-1.5 rounded-full bg-white/70 border border-[#BFDBFE] shadow-sm self-center order-first hover:bg-[#DBEAFE] hover:border-[#93C5FD] transition-all duration-150 focus:opacity-100"
+      title="Edit message"
+    >
+      <Pencil className="w-3.5 h-3.5 text-[#6B7280] hover:text-[#2563EB]" />
+    </button>
+  )
+}
+
 function SelectCircle({ isSelected }: { isSelected: boolean }) {
   return (
     <div className={cn(
@@ -117,8 +139,70 @@ export default function MessageBubble({
   isSelectMode = false,
   isSelected = false,
 }: MessageBubbleProps) {
-  const [reactions, setReactions] = useState<Reaction[]>(message.reactions ?? [])
+  const { data: session } = useSession()
+  const { updateMessage } = useChatStore()
+
+  const [reactions,  setReactions]  = useState<Reaction[]>(message.reactions ?? [])
   const [pickerOpen, setPickerOpen] = useState(false)
+
+  // ── Edit state ────────────────────────────────────────────────────────
+  const [isEditing,  setIsEditing]  = useState(false)
+  const [editValue,  setEditValue]  = useState('')
+  const [isSaving,   setIsSaving]   = useState(false)
+  const [editError,  setEditError]  = useState('')
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Auto-focus and select-all when edit mode opens
+  useEffect(() => {
+    if (isEditing && textareaRef.current) {
+      textareaRef.current.focus()
+      textareaRef.current.select()
+    }
+  }, [isEditing])
+
+  const openEdit = () => {
+    setEditValue(message.content)
+    setEditError('')
+    setIsEditing(true)
+  }
+
+  const cancelEdit = () => {
+    setIsEditing(false)
+    setEditError('')
+  }
+
+  const saveEdit = async () => {
+    const trimmed = editValue.trim()
+    if (!trimmed) return
+    if (trimmed === message.content) { cancelEdit(); return }
+    if (!session?.accessToken) return
+
+    setIsSaving(true)
+    setEditError('')
+    try {
+      const res = await authFetch(
+        `${API}/api/v1/conversations/${message.conversationId}/messages/${message.id}`,
+        { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: trimmed }) },
+        session.accessToken,
+      )
+      const json = await res.json()
+      if (json.success) {
+        updateMessage(message.conversationId, json.data)
+        setIsEditing(false)
+      } else {
+        setEditError(json?.error?.message ?? 'Could not save edit.')
+      }
+    } catch {
+      setEditError('Network error. Try again.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void saveEdit() }
+    if (e.key === 'Escape') cancelEdit()
+  }
 
   const addReaction = (emoji: string) => {
     setReactions((prev) => {
@@ -127,6 +211,9 @@ export default function MessageBubble({
       return [...prev, { emoji, count: 1 }]
     })
     setPickerOpen(false)
+    if (REAL_ID.test(message.id)) {
+      wsClient.send({ type: 'ADD_REACTION', conversationId: message.conversationId, messageId: message.id, emoji })
+    }
   }
 
   /* ─── Text ─── */
@@ -148,13 +235,50 @@ export default function MessageBubble({
               isMe
                 ? 'bg-[#DBEAFE] text-[#1F2937] rounded-br-sm'
                 : 'bg-white text-[#1F2937] rounded-bl-sm',
+              isEditing && 'ring-2 ring-[#2563EB]/40',
             )}>
-              <p className="text-sm leading-relaxed">{message.content}</p>
-              <MetaRow viewCount={message.viewCount} timestamp={message.timestamp} sent={isMe} isPending={message.isPending} isRead={message.isRead} />
+              {isEditing ? (
+                /* ── Inline edit ── */
+                <div className="flex flex-col gap-2 min-w-[200px]">
+                  <textarea
+                    ref={textareaRef}
+                    rows={Math.max(1, editValue.split('\n').length)}
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onKeyDown={handleEditKeyDown}
+                    className="w-full text-sm text-[#1F2937] bg-transparent border-b-2 border-[#2563EB] outline-none resize-none leading-relaxed"
+                  />
+                  {editError && (
+                    <p className="text-[10px] text-red-400">{editError}</p>
+                  )}
+                  <div className="flex items-center gap-2 justify-end">
+                    <button
+                      onClick={cancelEdit}
+                      className="text-[10px] font-medium text-[#6B7280] hover:text-[#1F2937] transition-colors px-1.5 py-0.5 rounded"
+                    >
+                      cancel
+                    </button>
+                    <button
+                      onClick={() => void saveEdit()}
+                      disabled={isSaving || !editValue.trim() || editValue.trim() === message.content}
+                      className="flex items-center gap-1 text-[10px] font-semibold text-white bg-[#2563EB] hover:bg-[#3B82F6] disabled:opacity-50 disabled:cursor-not-allowed px-2.5 py-1 rounded-lg transition-colors"
+                    >
+                      {isSaving && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                      save
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm leading-relaxed">{message.content}</p>
+              )}
+              <MetaRow viewCount={message.viewCount} timestamp={message.timestamp} sent={isMe} isPending={message.isPending} isRead={message.isRead} editedAt={message.editedAt} />
             </div>
             <ReactionBar reactions={reactions} onAdd={addReaction} />
           </div>
 
+          {!isSelectMode && isMe && !isEditing && REAL_ID.test(message.id) && (
+            <EditTrigger onClick={openEdit} />
+          )}
           {!isSelectMode && <ReactionTrigger isMe={isMe} onClick={() => setPickerOpen(true)} />}
           {isMe && <MyAvatar />}
           {isSelectMode && isMe && <SelectCircle isSelected={isSelected} />}

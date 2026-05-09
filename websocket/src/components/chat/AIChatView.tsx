@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { toast } from 'sonner'
 import { useSession } from 'next-auth/react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -156,7 +157,9 @@ export default function AIChatView() {
           }
           setMsgsLoading(false)
         }
-      } catch {/* ignore */}
+      } catch {
+        toast.error('Failed to load AI sessions')
+      }
     })()
 
     return () => { cancelled = true }
@@ -196,6 +199,8 @@ export default function AIChatView() {
       if (json.success) {
         setMessages(json.data.messages.map((m) => ({ id: m._id, role: m.role, content: m.content })))
       }
+    } catch {
+      toast.error('Failed to load chat history')
     } finally { setMsgsLoading(false) }
   }, [session?.accessToken])
 
@@ -221,8 +226,8 @@ export default function AIChatView() {
       setMessages([])
       setPanelOpen(true)   // open panel so user sees the new chat in the list
       return newSess._id
-    } catch (err) {
-      console.error('Failed to create new session:', err)
+    } catch {
+      toast.error('Failed to create new chat')
       return null
     }
   }, [session?.accessToken, currentSessId, messages.length])
@@ -234,7 +239,12 @@ export default function AIChatView() {
   const handleDeleteSession = useCallback(async (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     if (!session?.accessToken) return
-    await fetch(`${API}/api/v1/ai/sessions/${sessionId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${session.accessToken}` } })
+    try {
+      await fetch(`${API}/api/v1/ai/sessions/${sessionId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${session.accessToken}` } })
+    } catch {
+      toast.error('Failed to delete session')
+      return
+    }
 
     setSessions((prev) => {
       const remaining = prev.filter((s) => s._id !== sessionId)
@@ -252,7 +262,13 @@ export default function AIChatView() {
 
   const handleClearAll = useCallback(async () => {
     if (!session?.accessToken) return
-    await fetch(`${API}/api/v1/ai/sessions`, { method: 'DELETE', headers: { Authorization: `Bearer ${session.accessToken}` } })
+    try {
+      await fetch(`${API}/api/v1/ai/sessions`, { method: 'DELETE', headers: { Authorization: `Bearer ${session.accessToken}` } })
+    } catch {
+      toast.error('Failed to clear history')
+      setClearConfirm(false)
+      return
+    }
     setSessions([])
     setCurrentSessId(null)
     setMessages([])
@@ -286,9 +302,20 @@ export default function AIChatView() {
 
     try {
       const response = await makeFetch(sessionId)
-      if (!response.ok) throw new Error('Bad response')
+      if (!response.ok) {
+        const body = await response.json().catch(() => null) as { error?: { message?: string } } | null
+        const msg = body?.error?.message ?? 'AI request failed'
+        toast.error(msg)
+        setMessages((prev) =>
+          prev.map((m) => m.id === assistantId
+            ? { ...m, content: msg, error: true }
+            : m),
+        )
+        return
+      }
       await readStream(response, assistantId, setMessages)
     } catch {
+      toast.error('AI request failed')
       setMessages((prev) =>
         prev.map((m) => m.id === assistantId
           ? { ...m, content: 'Something went wrong. Please try again.', error: true }

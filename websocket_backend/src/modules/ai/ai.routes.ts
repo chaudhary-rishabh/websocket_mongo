@@ -1,5 +1,11 @@
 import { Router, type Request, type Response } from 'express'
 import { authenticate } from '../../middleware/auth.js'
+import {
+  aiReadRateLimit,
+  aiSessionMutateRateLimit,
+  aiChatRateLimit,
+  aiAnalyzeRateLimit,
+} from '../../middleware/rateLimit.js'
 import { env } from '../../config/env.js'
 import { logger } from '../../shared/utils/logger.js'
 import type { AuthRequest } from '../../shared/types/index.js'
@@ -138,7 +144,7 @@ Rules you must follow:
 
 // ─── GET /api/v1/ai/sessions ──────────────────────────────────────────────────
 /** List all AI sessions for the authenticated user, newest first. */
-router.get('/sessions', async (req: Request, res: Response): Promise<void> => {
+router.get('/sessions', aiReadRateLimit, async (req: Request, res: Response): Promise<void> => {
   const { sub } = (req as AuthRequest).user
   const sessions = await AiSession.find({ userId: sub })
     .sort({ lastActivityAt: -1 })
@@ -148,7 +154,7 @@ router.get('/sessions', async (req: Request, res: Response): Promise<void> => {
 
 // ─── POST /api/v1/ai/sessions ────────────────────────────────────────────────
 /** Create a new AI session (called by "New Chat" button). */
-router.post('/sessions', async (req: Request, res: Response): Promise<void> => {
+router.post('/sessions', aiSessionMutateRateLimit, async (req: Request, res: Response): Promise<void> => {
   const { sub } = (req as AuthRequest).user
   try {
     const session = await createSession(sub)
@@ -161,7 +167,7 @@ router.post('/sessions', async (req: Request, res: Response): Promise<void> => {
 
 // ─── DELETE /api/v1/ai/sessions ───────────────────────────────────────────────
 /** Delete ALL sessions and messages for the authenticated user (Clear All). */
-router.delete('/sessions', async (req: Request, res: Response): Promise<void> => {
+router.delete('/sessions', aiSessionMutateRateLimit, async (req: Request, res: Response): Promise<void> => {
   const { sub } = (req as AuthRequest).user
   const sessions = await AiSession.find({ userId: sub }).select('_id').lean()
   const ids = sessions.map((s) => s._id)
@@ -172,7 +178,7 @@ router.delete('/sessions', async (req: Request, res: Response): Promise<void> =>
 
 // ─── DELETE /api/v1/ai/sessions/:sessionId ────────────────────────────────────
 /** Delete one session and all its messages. */
-router.delete('/sessions/:sessionId', async (req: Request, res: Response): Promise<void> => {
+router.delete('/sessions/:sessionId', aiSessionMutateRateLimit, async (req: Request, res: Response): Promise<void> => {
   const { sub } = (req as AuthRequest).user
   const { sessionId } = req.params as { sessionId: string }
 
@@ -192,7 +198,7 @@ router.delete('/sessions/:sessionId', async (req: Request, res: Response): Promi
  * Returns messages for a specific session (or most-recent session if no sessionId).
  * Supports cursor-based pagination via ?before=<messageId>.
  */
-router.get('/messages', async (req: Request, res: Response): Promise<void> => {
+router.get('/messages', aiReadRateLimit, async (req: Request, res: Response): Promise<void> => {
   const { sub } = (req as AuthRequest).user
   const limit     = Math.min(Number(req.query['limit'] ?? 100), 200)
   const before    = req.query['before'] as string | undefined
@@ -226,7 +232,7 @@ router.get('/messages', async (req: Request, res: Response): Promise<void> => {
  * Body: { sessionId: string; messages: { role: 'user'|'assistant'; content: string }[] }
  * Persists the new user message and streams the assistant reply via SSE.
  */
-router.post('/chat', async (req: Request, res: Response): Promise<void> => {
+router.post('/chat', aiChatRateLimit, async (req: Request, res: Response): Promise<void> => {
   if (!env.DEEPSEEK_API_KEY) {
     res.status(503).json({ success: false, error: { code: 'AI_UNAVAILABLE', message: 'AI service is not configured' } })
     return
@@ -330,7 +336,7 @@ router.post('/chat', async (req: Request, res: Response): Promise<void> => {
  * Body: { sessionId: string; userId?: string; userLabel?: string }
  * Fetches the target user's chat history, runs personality analysis, persists both turns.
  */
-router.post('/analyze-user', async (req: Request, res: Response): Promise<void> => {
+router.post('/analyze-user', aiAnalyzeRateLimit, async (req: Request, res: Response): Promise<void> => {
   if (!env.DEEPSEEK_API_KEY) {
     res.status(503).json({ success: false, error: { code: 'AI_UNAVAILABLE', message: 'AI service is not configured' } })
     return

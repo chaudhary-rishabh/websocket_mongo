@@ -12,6 +12,8 @@ import Image from 'next/image'
 import { useSession } from 'next-auth/react'
 import { cn } from '@/lib/utils'
 import { logoutAction } from '@/app/actions/auth'
+import { authFetch } from '@/lib/api'
+import { useChatStore } from '@/lib/store'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
 
@@ -74,6 +76,9 @@ function SectionLabel({ children }: { children: string }) {
 /* ─── Main ───────────────────────────────────────────────────────────── */
 export default function ProfilePage() {
   const { data: session, update: updateSession } = useSession()
+  const { realConversations, wsConnected } = useChatStore()
+  const groupCount = realConversations.filter((c) => c.type === 'group').length
+  const dmCount    = realConversations.filter((c) => c.type === 'dm').length
 
   const [displayName,    setDisplayName]    = useState('')
   const [editingName,    setEditingName]    = useState(false)
@@ -103,14 +108,11 @@ export default function ProfilePage() {
     setSaving(true)
     setSaveError('')
     try {
-      const res = await fetch(`${API}/api/v1/users/me`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.accessToken}`,
-        },
-        body: JSON.stringify(body),
-      })
+      const res = await authFetch(
+        `${API}/api/v1/users/me`,
+        { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+        session.accessToken,
+      )
       const json = await res.json()
       if (!res.ok || !json.success) {
         setSaveError(json?.error?.message ?? 'Failed to save changes.')
@@ -266,18 +268,21 @@ export default function ProfilePage() {
             </div>
 
             {/* Online pill */}
-            <div className="mt-3 flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              Online
+            <div className={cn(
+              'mt-3 flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full',
+              wsConnected ? 'text-emerald-700 bg-emerald-50' : 'text-[#6B7280] bg-[#F3F4F6]',
+            )}>
+              <span className={cn('w-1.5 h-1.5 rounded-full', wsConnected ? 'bg-emerald-500' : 'bg-[#9CA3AF]')} />
+              {wsConnected ? 'Online' : 'Offline'}
             </div>
           </div>
 
           {/* Stats */}
           <div className="grid grid-cols-3 border-t border-[#BFDBFE]">
             {[
-              { value: '1.2k', label: 'Messages' },
-              { value: '4',    label: 'Groups'   },
-              { value: '28',   label: 'Contacts'  },
+              { value: String(realConversations.length), label: 'Chats'    },
+              { value: String(groupCount),               label: 'Groups'   },
+              { value: String(dmCount),                  label: 'Contacts' },
             ].map((s, i) => (
               <div key={i} className={cn('flex flex-col items-center py-4 gap-0.5', i > 0 && 'border-l border-[#BFDBFE]')}>
                 <span className="text-base font-bold text-[#1F2937]">{s.value}</span>

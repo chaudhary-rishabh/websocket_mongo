@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import { toast } from 'sonner'
 import { useSession, signOut } from 'next-auth/react'
 import { wsClient } from '@/lib/ws-client'
 import { useChatStore } from '@/lib/store'
@@ -20,6 +21,8 @@ export default function WSProvider() {
     setUserOffline,
     setRealConversations,
     markMessagesRead,
+    updateMessage,
+    updateConversationLastMessage,
   } = useChatStore()
 
   // Register token store for 401-retry; sign out if refresh token is exhausted
@@ -54,7 +57,7 @@ export default function WSProvider() {
           setRealConversations(json.data)
         }
       })
-      .catch(() => {/* ignore */})
+      .catch(() => { toast.error('Failed to load conversations') })
   }, [session?.accessToken, setRealConversations])
 
   // Connect / disconnect WS
@@ -77,6 +80,7 @@ export default function WSProvider() {
           } else {
             appendMessage(convId, msg)
           }
+          updateConversationLastMessage(convId, msg)
           break
         }
 
@@ -90,6 +94,10 @@ export default function WSProvider() {
 
         case 'MESSAGES_READ':
           markMessagesRead(event.conversationId, event.userId, event.readAt)
+          break
+
+        case 'REACTION_UPDATED':
+          updateMessage(event.message.conversationId, event.message)
           break
 
         case 'USER_ONLINE':
@@ -107,7 +115,7 @@ export default function WSProvider() {
       wsClient.disconnect()
       setWsConnected(false)
     }
-  }, [session?.accessToken, setWsConnected, appendMessage, replaceTempMessage, setTyping, setUserOnline, setUserOffline, markMessagesRead])
+  }, [session?.accessToken, setWsConnected, appendMessage, replaceTempMessage, setTyping, setUserOnline, setUserOffline, markMessagesRead, updateMessage, updateConversationLastMessage])
 
   return null
 }

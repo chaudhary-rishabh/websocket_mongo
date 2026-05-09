@@ -32,6 +32,7 @@ export interface ApiMessage {
   readBy: { userId: string; readAt: string }[]
   createdAt: string
   updatedAt: string
+  editedAt?: string
   /** Present only before server confirms (optimistic UI) */
   tempId?: string
   isPending?: boolean
@@ -82,4 +83,5 @@ export type ClientEvent =
   | { type: 'TYPING_START'; conversationId: string }
   | { type: 'TYPING_STOP'; conversationId: string }
   | { type: 'MARK_READ'; conversationId: string }
+  | { type: 'ADD_REACTION'; conversationId: string; messageId: string; emoji: string }
   | { type: 'PING' }

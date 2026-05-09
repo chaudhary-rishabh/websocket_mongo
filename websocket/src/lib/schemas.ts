@@ -23,6 +23,7 @@ export const MessageSchema = z.object({
   viewCount: z.number(),
   isRead: z.boolean(),
   isPending: z.boolean().optional(),
+  editedAt: z.string().optional(),
 })
 
 export const ConversationSchema = z.object({

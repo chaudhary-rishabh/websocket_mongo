@@ -202,6 +202,7 @@ export default function MessageList({
             viewCount: message.readBy.length,
             isRead: message.readBy.length > 0,
             isPending: message.isPending,
+            editedAt: message.editedAt,
             reactions: message.reactions.reduce<{ emoji: string; count: number }[]>((acc, r) => {
               const existing = acc.find((x) => x.emoji === r.emoji)
               if (existing) existing.count++

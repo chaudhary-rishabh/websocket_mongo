@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Geist, Inter } from 'next/font/google'
+import { Toaster } from 'sonner'
 import Providers from '@/components/ui/providers'
 import './globals.css'
 
@@ -25,6 +26,7 @@ export default function RootLayout({
     <html lang="en" className={`${geist.variable} ${inter.variable} h-full antialiased`}>
       <body className="h-full" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
         <Providers>{children}</Providers>
+        <Toaster richColors position="bottom-right" />
       </body>
     </html>
   )

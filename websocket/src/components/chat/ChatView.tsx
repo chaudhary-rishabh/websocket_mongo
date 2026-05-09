@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Trash2, X } from 'lucide-react'
+import { toast } from 'sonner'
 import { useSession } from 'next-auth/react'
 import { getConversationById, getMessages } from '@/lib/mock-data'
 import { useChatStore } from '@/lib/store'
@@ -33,6 +34,7 @@ export default function ChatView({ conversationId }: ChatViewProps) {
     realConversations,
     messagePagination,
     setMessagePagination,
+    clearUnreadCount,
   } = useChatStore()
 
   const [apiConversation, setApiConversation] = useState<ApiConversation | null>(null)
@@ -68,14 +70,14 @@ export default function ChatView({ conversationId }: ChatViewProps) {
         prependMessages(conversationId, items)
         setMessagePagination(conversationId, { hasMore, nextCursor })
       })
-      .catch(() => {/* ignore */})
+      .catch(() => { toast.error('Failed to load messages') })
 
     // Load conversation details if not cached (with 401 retry)
     if (!cached) {
       authFetch(`${API}/api/v1/conversations/${conversationId}`, {}, session.accessToken)
         .then((r) => r.json())
         .then((json) => { if (json.success) setApiConversation(json.data as ApiConversation) })
-        .catch(() => {/* ignore */})
+        .catch(() => { toast.error('Failed to load conversation') })
     }
   }, [isReal, conversationId, session?.accessToken, realConversations, prependMessages, setMessagePagination])
 
@@ -99,7 +101,7 @@ export default function ChatView({ conversationId }: ChatViewProps) {
         prependMessages(conversationId, items)
         setMessagePagination(conversationId, { hasMore, nextCursor })
       })
-      .catch(() => {/* ignore */})
+      .catch(() => { toast.error('Failed to load older messages') })
       .finally(() => setIsLoadingMore(false))
   }, [conversationId, isLoadingMore, pagination, prependMessages, session?.accessToken, setMessagePagination])
 
@@ -107,10 +109,10 @@ export default function ChatView({ conversationId }: ChatViewProps) {
   useEffect(() => {
     if (!isReal) return
     wsClient.send({ type: 'JOIN_CONVERSATION', conversationId })
-    // Mark all messages read when entering the conversation
     wsClient.send({ type: 'MARK_READ', conversationId })
+    clearUnreadCount(conversationId)
     return () => { wsClient.send({ type: 'LEAVE_CONVERSATION', conversationId }) }
-  }, [isReal, conversationId])
+  }, [isReal, conversationId, clearUnreadCount])
 
   // ── Send MARK_READ when new real-time messages arrive ─────────────────
   const realtimeMsgCount = realtimeMessages[conversationId]?.length ?? 0

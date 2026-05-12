@@ -20,6 +20,8 @@ interface ChatHeaderProps {
   onDeleteSelected: () => void
   memberDetails?: PopulatedMember[]
   myUserId?: string
+  isMessageSearchOpen?: boolean
+  onMessageSearchToggle?: () => void
 }
 
 export default function ChatHeader({
@@ -31,6 +33,8 @@ export default function ChatHeader({
   onDeleteSelected,
   memberDetails,
   myUserId,
+  isMessageSearchOpen,
+  onMessageSearchToggle,
 }: ChatHeaderProps) {
   const { toggleSidebar, setSearchOpen } = useChatStore()
   const { data: session } = useSession()
@@ -124,8 +128,12 @@ export default function ChatHeader({
                 Select
               </button>
               <button
-                onClick={() => setSearchOpen(true)}
-                className="p-2 rounded-full hover:bg-[#DBEAFE] transition-all duration-200 text-[#6B7280] hover:text-[#2563EB]"
+                onClick={() => onMessageSearchToggle ? onMessageSearchToggle() : setSearchOpen(true)}
+                className={`p-2 rounded-full transition-all duration-200 ${
+                  isMessageSearchOpen
+                    ? 'bg-[#DBEAFE] text-[#2563EB]'
+                    : 'hover:bg-[#DBEAFE] text-[#6B7280] hover:text-[#2563EB]'
+                }`}
               >
                 <Search className="w-4 h-4" />
               </button>

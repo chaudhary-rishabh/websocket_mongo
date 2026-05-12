@@ -34,6 +34,7 @@ interface MessageListProps {
   hasMore?: boolean
   isLoadingMore?: boolean
   onLoadMore?: () => void
+  searchQuery?: string
 }
 
 export default function MessageList({
@@ -49,12 +50,22 @@ export default function MessageList({
   hasMore = false,
   isLoadingMore = false,
   onLoadMore,
+  searchQuery = '',
 }: MessageListProps) {
   const containerRef   = useRef<HTMLDivElement>(null)
   const topSentinelRef = useRef<HTMLDivElement>(null)
   const bottomRef      = useRef<HTMLDivElement>(null)
 
-  // Stable refs so the IntersectionObserver closure never goes stale
+  const query = searchQuery.trim().toLowerCase()
+
+  const filteredMock = query
+    ? mockMessages.filter((m) => m.content.toLowerCase().includes(query))
+    : mockMessages
+
+  const filteredRealtime = query
+    ? realtimeMessages.filter((m) => m.content.toLowerCase().includes(query))
+    : realtimeMessages
+
   const isLoadingMoreRef = useRef(isLoadingMore)
   const hasMoreRef       = useRef(hasMore)
   const onLoadMoreRef    = useRef(onLoadMore)
@@ -130,13 +141,19 @@ export default function MessageList({
         </div>
       )}
 
-      {!hasMore && realtimeMessages.length > 0 && (
+      {query && filteredRealtime.length === 0 && filteredMock.length === 0 && (
+        <p className="text-center text-sm text-[#9CA3AF] py-10">
+          No messages found for &ldquo;{searchQuery}&rdquo;
+        </p>
+      )}
+
+      {!hasMore && filteredRealtime.length > 0 && !query && (
         <p className="text-center text-[10px] text-[#9CA3AF] py-1 select-none">
           Beginning of conversation
         </p>
       )}
 
-      {mockMessages.map((message, index) => {
+      {filteredMock.map((message, index) => {
         const isMe    = message.senderId === CURRENT_USER.id
         const sender  = isMe ? CURRENT_USER : getUserById(message.senderId)
         const isSelected = selectedIds.has(message.id)
@@ -166,7 +183,7 @@ export default function MessageList({
         )
       })}
 
-      {realtimeMessages
+      {filteredRealtime
         .filter((m) => !deletedIds.has(m._id))
         .map((message, index) => {
           const populated = message.senderId && typeof message.senderId === 'object'

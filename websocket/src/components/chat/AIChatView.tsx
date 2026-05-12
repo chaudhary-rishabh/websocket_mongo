@@ -348,14 +348,14 @@ export default function AIChatView() {
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
         className="flex-shrink-0 overflow-hidden"
       >
-        <div className="w-[220px] h-full flex flex-col border-r border-white/40 bg-white/60">
+        <div className="w-[220px] h-full flex flex-col border-r border-[#BFDBFE] bg-[#EFF6FF]/80">
 
           <div className="flex items-center justify-between px-3 pt-4 pb-2 flex-shrink-0">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Chats</p>
+            <p className="text-[10px] font-bold text-[#2563EB] uppercase tracking-widest">Chats</p>
             <button
               onClick={handleNewChat}
               title="New Chat"
-              className="p-1.5 rounded-xl hover:bg-gray-100 text-gray-500 transition-colors"
+              className="p-1.5 rounded-xl hover:bg-[#DBEAFE] text-[#2563EB] transition-colors"
             >
               <SquarePen className="w-3.5 h-3.5" />
             </button>
@@ -363,13 +363,13 @@ export default function AIChatView() {
 
           <div className="flex-1 overflow-y-auto chat-scrollbar">
             {sessions.length === 0 ? (
-              <p className="text-center text-xs text-gray-400 px-4 py-10 leading-relaxed">
+              <p className="text-center text-xs text-[#6B7280] px-4 py-10 leading-relaxed">
                 No chat history yet.<br />Start a new chat above.
               </p>
             ) : (
               groupSessions(sessions).map((group) => (
                 <div key={group.label}>
-                  <p className="px-3 pt-3 pb-1 text-[9px] font-semibold uppercase tracking-widest text-gray-400">
+                  <p className="px-3 pt-3 pb-1 text-[9px] font-semibold uppercase tracking-widest text-[#6B7280]">
                     {group.label}
                   </p>
                   {group.items.map((s) => (
@@ -386,7 +386,7 @@ export default function AIChatView() {
             )}
           </div>
 
-          <div className="flex-shrink-0 p-3 border-t border-gray-200">
+          <div className="flex-shrink-0 p-3 border-t border-[#BFDBFE]">
             <AnimatePresence mode="wait">
               {clearConfirm ? (
                 <motion.div
@@ -404,7 +404,7 @@ export default function AIChatView() {
                   </button>
                   <button
                     onClick={() => setClearConfirm(false)}
-                    className="flex-1 text-[11px] py-1.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                    className="flex-1 text-[11px] py-1.5 rounded-xl bg-[#DBEAFE] text-[#2563EB] hover:bg-[#BFDBFE] transition-colors"
                   >
                     Cancel
                   </button>
@@ -434,7 +434,7 @@ export default function AIChatView() {
           <header className="flex items-center gap-3 px-5 py-3.5 header-glass flex-shrink-0">
             <button
               onClick={() => setPanelOpen((p) => !p)}
-              className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-500 flex-shrink-0"
+              className="p-2 rounded-full hover:bg-[#DBEAFE] transition-colors text-[#2563EB] flex-shrink-0"
               title={panelOpen ? 'Hide history' : 'Show history'}
             >
               {panelOpen
@@ -444,7 +444,7 @@ export default function AIChatView() {
 
             <button
               onClick={toggleSidebar}
-              className="md:hidden p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-500"
+              className="md:hidden p-2 rounded-full hover:bg-[#DBEAFE] transition-colors text-[#2563EB]"
             >
               <Menu className="w-5 h-5" />
             </button>
@@ -460,8 +460,8 @@ export default function AIChatView() {
               <p className="text-xs text-gray-500">Powered by DeepSeek</p>
             </div>
 
-            <div className="flex items-center gap-1.5 text-[10px] font-medium text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full flex-shrink-0">
-              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isStreaming ? 'bg-emerald-500 animate-pulse' : 'bg-gray-300'}`} />
+            <div className="flex items-center gap-1.5 text-[10px] font-medium text-[#2563EB] bg-[#DBEAFE] px-2.5 py-1 rounded-full flex-shrink-0">
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isStreaming ? 'bg-emerald-500 animate-pulse' : 'bg-[#93C5FD]'}`} />
               {isStreaming ? 'Thinking…' : 'Ready'}
             </div>
 
@@ -469,7 +469,7 @@ export default function AIChatView() {
               onClick={() => void createNewSession()}
               disabled={isStreaming}
               title="New Chat"
-              className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-500 flex-shrink-0 disabled:opacity-40"
+              className="p-2 rounded-full hover:bg-[#DBEAFE] transition-colors text-[#2563EB] flex-shrink-0 disabled:opacity-40"
             >
               <SquarePen className="w-4 h-4" />
             </button>
@@ -514,7 +514,7 @@ export default function AIChatView() {
                           key={hint}
                           onClick={() => void handleSend(hint)}
                           disabled={isStreaming}
-                          className="text-xs text-gray-600 bg-white hover:bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-xl transition-colors disabled:opacity-50"
+                          className="text-xs text-[#1F2937] bg-white hover:bg-[#DBEAFE] border border-[#BFDBFE] px-3 py-1.5 rounded-xl transition-colors disabled:opacity-50"
                         >
                           {hint}
                         </button>
@@ -543,16 +543,16 @@ export default function AIChatView() {
                       <button
                         onClick={() => { setAnalyzeOpen(true); setUserSearchQ(''); setUserResults([]) }}
                         disabled={isStreaming}
-                        className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white border border-gray-200 hover:bg-gray-50 transition-colors text-left disabled:opacity-50"
+                        className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white border border-[#BFDBFE] hover:bg-[#EFF6FF] transition-colors text-left disabled:opacity-50"
                       >
-                        <div className="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
-                          <UserSearch className="w-4 h-4 text-gray-500" />
+                        <div className="w-8 h-8 rounded-xl bg-[#DBEAFE] flex items-center justify-center flex-shrink-0">
+                          <UserSearch className="w-4 h-4 text-[#2563EB]" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-gray-900">Analyse someone else</p>
-                          <p className="text-[10px] text-gray-500 mt-0.5">Pick a user from your conversations</p>
+                          <p className="text-xs font-semibold text-[#1F2937]">Analyse someone else</p>
+                          <p className="text-[10px] text-[#6B7280] mt-0.5">Pick a user from your conversations</p>
                         </div>
-                        <ChevronRight className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
+                        <ChevronRight className="w-3.5 h-3.5 text-[#93C5FD] flex-shrink-0" />
                       </button>
                     </div>
                   </>
@@ -579,7 +579,7 @@ export default function AIChatView() {
                 key="sheet"
                 initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
                 transition={{ type: 'spring', stiffness: 380, damping: 36, mass: 0.8 }}
-                className="absolute bottom-0 inset-x-0 z-30 bg-white rounded-t-[25px] border-t border-gray-200 shadow-2xl flex flex-col"
+                className="absolute bottom-0 inset-x-0 z-30 bg-[#EFF6FF] rounded-t-[25px] border-t border-[#BFDBFE] shadow-2xl flex flex-col"
                 style={{ maxHeight: '60%' }}
               >
                 <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
@@ -587,12 +587,12 @@ export default function AIChatView() {
                     <p className="text-sm font-bold text-gray-900">Analyse a User</p>
                     <p className="text-xs text-gray-500 mt-0.5">Search from your conversations</p>
                   </div>
-                  <button onClick={() => setAnalyzeOpen(false)} className="p-2 rounded-full hover:bg-gray-100 text-gray-500">
+                  <button onClick={() => setAnalyzeOpen(false)} className="p-2 rounded-full hover:bg-[#DBEAFE] text-[#6B7280]">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
                 <div className="px-5 pb-3 flex-shrink-0">
-                  <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-2xl px-3 py-2">
+                  <div className="flex items-center gap-2 bg-white/70 border border-[#BFDBFE] rounded-2xl px-3 py-2">
                     <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     <input
                       autoFocus
@@ -603,7 +603,7 @@ export default function AIChatView() {
                     />
                   </div>
                 </div>
-                <div className="h-px bg-gray-200 mx-5 flex-shrink-0" />
+                <div className="h-px bg-[#BFDBFE] mx-5 flex-shrink-0" />
                 <div className="overflow-y-auto chat-scrollbar flex-1 py-2">
                   {searchLoading && <p className="text-center text-xs text-gray-400 py-6">Searching…</p>}
                   {!searchLoading && userResults.length === 0 && (
@@ -615,7 +615,7 @@ export default function AIChatView() {
                     <button
                       key={u._id}
                       onClick={() => void handleAnalyze(u._id, u.displayName)}
-                      className="w-full flex items-center gap-3 px-5 py-2.5 hover:bg-gray-50 transition-colors text-left"
+                      className="w-full flex items-center gap-3 px-5 py-2.5 hover:bg-[#DBEAFE] transition-colors text-left"
                     >
                       <Avatar src={u.avatar} initials={u.displayName.slice(0, 2).toUpperCase()} name={u.displayName} id={u._id} size="md" />
                       <div className="flex-1 min-w-0">
@@ -649,18 +649,18 @@ function SessionItem({
     <div
       onClick={onSelect}
       className={`group relative flex items-start gap-2 px-3 py-2.5 cursor-pointer transition-colors ${
-        isActive ? 'bg-gray-200' : 'hover:bg-gray-100'
+        isActive ? 'bg-[#BFDBFE]' : 'hover:bg-[#DBEAFE]'
       }`}
     >
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium text-gray-900 truncate leading-snug">
+        <p className="text-xs font-medium text-[#1F2937] truncate leading-snug">
           {session.title || 'New Chat'}
         </p>
-        <p className="text-[10px] text-gray-400 mt-0.5">{formatRelative(session.lastActivityAt)}</p>
+        <p className="text-[10px] text-[#6B7280] mt-0.5">{formatRelative(session.lastActivityAt)}</p>
       </div>
       <button
         onClick={onDelete}
-        className="flex-shrink-0 p-1 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-gray-200 text-gray-400 transition-all mt-0.5"
+        className="flex-shrink-0 p-1 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-[#BFDBFE] text-[#6B7280] transition-all mt-0.5"
         title="Delete chat"
       >
         <Trash2 className="w-3 h-3" />

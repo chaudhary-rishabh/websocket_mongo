@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, Trash2, X } from 'lucide-react'
+import { Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSession } from 'next-auth/react'
 import { getConversationById, getMessages } from '@/lib/mock-data'
@@ -250,37 +250,16 @@ export default function ChatView({ conversationId }: ChatViewProps) {
             isMessageSearchOpen={isMessageSearchOpen}
             onMessageSearchToggle={() => {
               setIsMessageSearchOpen((v) => !v)
-              setMessageSearchQuery('')
+              if (isMessageSearchOpen) setMessageSearchQuery('')
             }}
+            messageSearchQuery={messageSearchQuery}
+            onMessageSearchQueryChange={setMessageSearchQuery}
           />
         </div>
       )}
 
       {/* Top padding pushes message content below the floating header */}
       <div className={`flex flex-col flex-1 overflow-hidden ${conversation ? 'pt-[68px]' : ''}`}>
-        {isMessageSearchOpen && (
-          <div className="flex-shrink-0 px-4 py-2 border-b border-[#BFDBFE] bg-[#EFF6FF]/80">
-            <div className="flex items-center gap-2 bg-white/80 border border-[#BFDBFE] rounded-2xl px-4 py-2">
-              <Search className="w-4 h-4 text-[#6B7280] flex-shrink-0" />
-              <input
-                autoFocus
-                type="text"
-                value={messageSearchQuery}
-                onChange={(e) => setMessageSearchQuery(e.target.value)}
-                placeholder="Search messages…"
-                className="flex-1 bg-transparent text-sm text-[#1F2937] placeholder-[#9CA3AF] outline-none"
-              />
-              {messageSearchQuery && (
-                <button
-                  onClick={() => setMessageSearchQuery('')}
-                  className="text-[#93C5FD] hover:text-[#6B7280]"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          </div>
-        )}
         <MessageList
           mockMessages={mockMessages}
           realtimeMessages={realtimeMsgs}

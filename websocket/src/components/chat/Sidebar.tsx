@@ -1,13 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Search, MessageSquare, X, Trash2, SquarePen, Settings, LogOut, PanelLeftClose, PanelLeftOpen, Eye, Bot, Sparkles } from 'lucide-react'
+import { useSession } from 'next-auth/react'
+import { Search, MessageSquare, X, Trash2, SquarePen, Settings, LogOut, PanelLeftClose, PanelLeftOpen, Eye, Bot, Sparkles, Camera, Plus } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useChatStore } from '@/lib/store'
 import ConversationList from './ConversationList'
 import SearchModal from './SearchModal'
+import StoryRing from '@/components/story/StoryRing'
 import { logoutAction } from '@/app/actions/auth'
+import { authFetch } from '@/lib/api'
+
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
 
 const drawerVariants = {
   hidden:  { x: '-100%', transition: { type: 'tween', ease: [0.4, 0, 1, 1], duration: 0.22 } },
@@ -32,7 +37,8 @@ function SidebarContent({
   collapsed?: boolean
   onToggleCollapse?: () => void
 }) {
-  const { setSearchOpen } = useChatStore()
+  const { setSearchOpen, storiesByUser, setStoryPresence, setActiveStoryGroup, setStoryViewerOpen } = useChatStore()
+  const { data: session } = useSession()
 
   const [activeTab,    setActiveTab]    = useState<Tab>('people')
   const [isSelectMode, setIsSelectMode] = useState(false)
@@ -70,6 +76,42 @@ function SidebarContent({
   const cancelSelect = () => {
     setSelectedIds(new Set())
     setIsSelectMode(false)
+  }
+
+  useEffect(() => {
+    authFetch(`${API}/api/v1/stories/presence`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data)) setStoryPresence(json.data)
+      })
+      .catch(() => {})
+  }, [setStoryPresence])
+
+  const storyUsers = Object.entries(storiesByUser)
+    .filter(([userId]) => userId !== session?.user?.id)
+    .slice(0, 6)
+
+  const myStoryCount = storiesByUser[session?.user?.id ?? '']?.storyCount ?? 0
+
+  const handleOpenStory = async (userId: string) => {
+    try {
+      const res = await authFetch(`${API}/api/v1/stories/user/${userId}`)
+      const json = await res.json()
+      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+        const userRes = await authFetch(`${API}/api/v1/stories`)
+        const userJson = await userRes.json()
+        if (userJson.success && Array.isArray(userJson.data)) {
+          const groups = userJson.data as Array<{ user: { _id: string }; stories: unknown[] }>
+          const group = groups.find((g) => g.user._id === userId)
+          if (group) {
+            setActiveStoryGroup(group as never)
+            setStoryViewerOpen(true)
+          }
+        }
+      }
+    } catch {
+      // silent
+    }
   }
 
   return (
@@ -153,6 +195,58 @@ function SidebarContent({
         </div>
       )}
 
+      {/* ── Stories row ── */}
+      {!isSelectMode && (
+        <div className="px-4 pb-3">
+          <div className="flex items-center gap-3 overflow-x-auto story-scrollbar py-1">
+            {/* My Story */}
+            <StoryRing
+              hasStories={myStoryCount > 0}
+              isOwnStory
+              onClick={() => {
+                if (myStoryCount > 0) {
+                  handleOpenStory(session?.user?.id ?? '')
+                }
+              }}
+            >
+              <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#DBEAFE] to-[#BFDBFE] flex items-center justify-center overflow-hidden">
+                {session?.user?.image ? (
+                  <img src={session.user.image} alt="" className="w-full h-full object-cover rounded-full" />
+                ) : (
+                  <Camera className="w-5 h-5 text-[#2563EB]" />
+                )}
+              </div>
+            </StoryRing>
+
+            {/* Other users with stories */}
+            {storyUsers.map(([userId]) => (
+              <StoryRing
+                key={userId}
+                hasStories={true}
+                onClick={() => handleOpenStory(userId)}
+              >
+                <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#DBEAFE] to-[#BFDBFE] flex items-center justify-center text-[#2563EB] text-xs font-bold">
+                  ?
+                </div>
+              </StoryRing>
+            ))}
+
+            {/* See all link */}
+            {Object.keys(storiesByUser).length > 0 && (
+              <Link
+                href="/chat/stories"
+                className="flex flex-col items-center gap-1 flex-shrink-0"
+              >
+                <div className="w-11 h-11 rounded-full bg-[#EFF6FF] border border-[#BFDBFE] flex items-center justify-center hover:bg-[#DBEAFE] transition-colors">
+                  <Plus className="w-4 h-4 text-[#2563EB]" />
+                </div>
+                <span className="text-[10px] text-[#6B7280]">See all</span>
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── People / Groups toggle with smooth sliding indicator ── */}
       {!isSelectMode && (
         <div className="px-4 pb-3">
@@ -192,9 +286,22 @@ function SidebarContent({
         />
       </div>
 
-      {/* ── AI Chat shortcut — pinned above bottom nav ── */}
+      {/* ── Stories & AI Chat shortcuts — pinned above bottom nav ── */}
       {!isSelectMode && (
-        <div className="flex-shrink-0 px-3 pb-2">
+        <div className="flex-shrink-0 px-3 pb-2 flex flex-col gap-2">
+          <Link
+            href="/chat/stories"
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl hover:bg-[#DBEAFE] transition-all duration-200 border border-[#BFDBFE]"
+          >
+            <div className="w-8 h-8 rounded-xl bg-[#DBEAFE] flex items-center justify-center flex-shrink-0">
+              <Camera className="w-4 h-4 text-[#2563EB]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-[#1F2937]">Stories</p>
+              <p className="text-[10px] text-[#6B7280]">View all stories</p>
+            </div>
+          </Link>
+
           <Link
             href="/chat/ai"
             className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl bg-gray-900 hover:bg-gray-800 transition-all duration-200 border-2 border-blue-400/50 shadow-[0_0_14px_rgba(96,165,250,0.35)] hover:shadow-[0_0_20px_rgba(96,165,250,0.55)] hover:border-blue-400/70"

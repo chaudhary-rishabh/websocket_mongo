@@ -23,6 +23,8 @@ export default function WSProvider() {
     markMessagesRead,
     updateMessage,
     updateConversationLastMessage,
+    setUserHasStories,
+    clearUserStories,
   } = useChatStore()
 
   useEffect(() => {
@@ -103,6 +105,14 @@ export default function WSProvider() {
 
         case 'USER_OFFLINE':
           setUserOffline(event.userId)
+          break
+
+        case 'STORY_CREATED':
+          setUserHasStories(event.userId, event.storyCount)
+          break
+
+        case 'STORY_EXPIRED':
+          clearUserStories(event.userId)
           break
       }
     })

@@ -5,6 +5,12 @@ import { cn, formatTime } from '@/lib/utils'
 import type { Conversation } from '@/lib/schemas'
 import Avatar from '@/components/ui/Avatar'
 import Badge from '@/components/ui/Badge'
+import StoryRing from '@/components/story/StoryRing'
+import { useChatStore } from '@/lib/store'
+import { useSession } from 'next-auth/react'
+import { authFetch } from '@/lib/api'
+
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
 
 interface ConversationItemProps {
   conversation: Conversation
@@ -23,11 +29,42 @@ export default function ConversationItem({
   onClick,
   onToggleSelect,
 }: ConversationItemProps) {
-  const { name, avatar, initials, id, lastMessage, lastMessageTime, unreadCount, isPinned, lastMessageSentByMe } = conversation
+  const { name, avatar, initials, id, lastMessage, lastMessageTime, unreadCount, isPinned, lastMessageSentByMe, type, members } = conversation
+  const { storiesByUser, setActiveStoryGroup, setStoryViewerOpen } = useChatStore()
+  const { data: session } = useSession()
+
+  const isDm = type === 'direct'
+  const otherUserId = isDm ? members.find((m) => m !== session?.user?.id) : null
+  const hasStories = otherUserId ? (storiesByUser[otherUserId]?.storyCount ?? 0) > 0 : false
 
   const handleClick = () => {
     if (isSelectMode) onToggleSelect()
     else onClick()
+  }
+
+  const handleStoryClick = (e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    if (!otherUserId || !hasStories) return
+    void (async () => {
+    try {
+      const res = await authFetch(`${API}/api/v1/stories/user/${otherUserId}`)
+      const json = await res.json()
+      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+        const userRes = await authFetch(`${API}/api/v1/stories`)
+        const userJson = await userRes.json()
+        if (userJson.success && Array.isArray(userJson.data)) {
+          const groups = userJson.data as Array<{ user: { _id: string }; stories: unknown[] }>
+          const group = groups.find((g) => g.user._id === otherUserId)
+          if (group) {
+            setActiveStoryGroup(group as never)
+            setStoryViewerOpen(true)
+          }
+        }
+      }
+    } catch {
+      // silent
+    }
+    })()
   }
 
   return (
@@ -55,7 +92,9 @@ export default function ConversationItem({
       )}
 
       {/* Avatar */}
-      <Avatar src={avatar} initials={initials} name={name} id={id} size="md" />
+      <StoryRing hasStories={hasStories} onClick={hasStories ? handleStoryClick : undefined}>
+        <Avatar src={avatar} initials={initials} name={name} id={id} size="md" />
+      </StoryRing>
 
       {/* Content */}
       <div className="flex-1 min-w-0">

@@ -58,6 +58,22 @@ export interface PopulatedMember {
   isMe: boolean
 }
 
+export interface ApiStory {
+  _id: string
+  userId: string | ApiUser
+  mediaUrl: string
+  mediaType: 'image'
+  caption?: string
+  viewers: Array<{ userId: string; viewedAt: string }>
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ApiStoryGroup {
+  user: ApiUser
+  stories: ApiStory[]
+}
+
 export type ServerEvent =
   | { type: 'CONNECTED'; userId: string }
   | { type: 'NEW_MESSAGE'; message: ApiMessage; tempId?: string }
@@ -69,6 +85,8 @@ export type ServerEvent =
   | { type: 'REACTION_UPDATED'; message: ApiMessage }
   | { type: 'ERROR'; code: string; message: string }
   | { type: 'PONG' }
+  | { type: 'STORY_CREATED'; userId: string; storyCount: number }
+  | { type: 'STORY_EXPIRED'; userId: string }
 
 export type ClientEvent =
   | { type: 'JOIN_CONVERSATION'; conversationId: string }

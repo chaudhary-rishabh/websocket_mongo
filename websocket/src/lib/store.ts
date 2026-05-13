@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { ApiMessage, ApiMessageSender, ApiConversation } from './chat-types'
+import type { ApiMessage, ApiMessageSender, ApiConversation, ApiStoryGroup } from './chat-types'
 
 interface ChatStore {
   activeConversationId: string | null
@@ -38,6 +38,18 @@ interface ChatStore {
 
   messagePagination: Record<string, { nextCursor?: string; hasMore: boolean }>
   setMessagePagination: (convId: string, info: { nextCursor?: string; hasMore: boolean }) => void
+
+  storiesByUser: Record<string, { storyCount: number }>
+  setStoryPresence: (presence: Array<{ userId: string; storyCount: number }>) => void
+  setUserHasStories: (userId: string, storyCount: number) => void
+  clearUserStories: (userId: string) => void
+
+  activeStoryGroup: ApiStoryGroup | null
+  setActiveStoryGroup: (group: ApiStoryGroup | null) => void
+  isStoryViewerOpen: boolean
+  setStoryViewerOpen: (open: boolean) => void
+  isAddStoryOpen: boolean
+  setAddStoryOpen: (open: boolean) => void
 }
 
 export const useChatStore = create<ChatStore>((set) => ({
@@ -145,4 +157,29 @@ export const useChatStore = create<ChatStore>((set) => ({
     set((s) => ({
       messagePagination: { ...s.messagePagination, [convId]: info },
     })),
+
+  storiesByUser: {},
+  setStoryPresence: (presence) =>
+    set(() => {
+      const map: Record<string, { storyCount: number }> = {}
+      presence.forEach((p) => { map[p.userId] = { storyCount: p.storyCount } })
+      return { storiesByUser: map }
+    }),
+  setUserHasStories: (userId, storyCount) =>
+    set((s) => ({
+      storiesByUser: { ...s.storiesByUser, [userId]: { storyCount } },
+    })),
+  clearUserStories: (userId) =>
+    set((s) => {
+      const next = { ...s.storiesByUser }
+      delete next[userId]
+      return { storiesByUser: next }
+    }),
+
+  activeStoryGroup: null,
+  setActiveStoryGroup: (group) => set({ activeStoryGroup: group }),
+  isStoryViewerOpen: false,
+  setStoryViewerOpen: (open) => set({ isStoryViewerOpen: open }),
+  isAddStoryOpen: false,
+  setAddStoryOpen: (open) => set({ isAddStoryOpen: open }),
 }))

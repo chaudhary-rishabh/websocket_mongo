@@ -16,6 +16,7 @@ import conversationRoutes from './modules/conversations/conversation.routes.js'
 import messageRoutes from './modules/messages/message.routes.js'
 import mediaRoutes from './modules/media/media.routes.js'
 import aiRoutes from './modules/ai/ai.routes.js'
+import storyRoutes from './modules/stories/story.routes.js'
 
 const app = express()
 

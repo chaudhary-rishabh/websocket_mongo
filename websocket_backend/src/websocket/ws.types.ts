@@ -30,3 +30,5 @@ export type ServerEvent =
   | { type: 'REACTION_UPDATED'; message: Record<string, unknown> }
   | { type: 'ERROR'; code: string; message: string }
   | { type: 'PONG' }
+  | { type: 'STORY_CREATED'; userId: string; storyCount: number }
+  | { type: 'STORY_EXPIRED'; userId: string }

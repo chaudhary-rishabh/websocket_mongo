@@ -5,7 +5,8 @@ import { User } from '../users/user.model.js'
 import { AppError } from '../../middleware/error.js'
 import { getPrivateKey, getPublicKey } from '../../config/jwt.js'
 import { env } from '../../config/env.js'
-import type { RegisterInput, LoginInput } from './auth.schemas.js'
+import { logger } from '../../shared/utils/logger.js'
+import type { RegisterInput, LoginInput, ForgotPasswordInput, ResetPasswordInput } from './auth.schemas.js'
 import type { AuthPayload } from '../../shared/types/index.js'
 
 const BCRYPT_ROUNDS = 12
@@ -112,4 +113,42 @@ export async function refresh(token: string) {
 
 export async function logout(userId: string): Promise<void> {
   await User.findByIdAndUpdate(userId, { $unset: { refreshTokenHash: '' } })
+}
+
+export async function forgotPassword(input: ForgotPasswordInput) {
+  const user = await User.findOne({ email: input.email }).lean()
+  if (!user) return
+
+  const resetToken = await new SignJWT({ sub: user._id.toString(), email: user.email, type: 'password_reset' } as const)
+    .setProtectedHeader({ alg: 'RS256' })
+    .setIssuedAt()
+    .setExpirationTime('15m')
+    .setJti(uuidv4())
+    .sign(getPrivateKey())
+
+  const origin = env.CORS_ORIGINS.split(',')[0]?.trim() ?? 'http://localhost:3000'
+  const resetLink = `${origin}/reset-password?token=${resetToken}`
+
+  logger.info({ email: input.email }, `Password reset link: ${resetLink}`)
+}
+export async function resetPassword(input: ResetPasswordInput) {
+  let payload: { sub?: string; type?: string }
+  try {
+    const result = await jwtVerify(input.token, getPublicKey(), { algorithms: ['RS256'] })
+    payload = result.payload as { sub?: string; type?: string }
+  } catch {
+    throw new AppError('INVALID_TOKEN', 'Invalid or expired reset token', 400)
+  }
+
+  if (payload.type !== 'password_reset' || !payload.sub) {
+    throw new AppError('INVALID_TOKEN', 'Malformed reset token', 400)
+  }
+
+  const passwordHash = await bcrypt.hash(input.password, 12)
+  await User.findByIdAndUpdate(payload.sub, {
+    $set: { passwordHash },
+    $unset: { refreshTokenHash: '' },
+  })
+
+  logger.info({ userId: payload.sub }, 'Password reset successful')
 }

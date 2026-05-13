@@ -2,8 +2,8 @@ import { Router } from 'express'
 import { authRateLimit } from '../../middleware/rateLimit.js'
 import { validate } from '../../middleware/validate.js'
 import { authenticate } from '../../middleware/auth.js'
-import { RegisterSchema, LoginSchema, RefreshSchema } from './auth.schemas.js'
-import { registerHandler, loginHandler, refreshHandler, logoutHandler } from './auth.controller.js'
+import { RegisterSchema, LoginSchema, RefreshSchema, ForgotPasswordSchema, ResetPasswordSchema } from './auth.schemas.js'
+import { registerHandler, loginHandler, refreshHandler, logoutHandler, forgotPasswordHandler, resetPasswordHandler } from './auth.controller.js'
 
 const router = Router()
 
@@ -11,5 +11,7 @@ router.post('/register', authRateLimit, validate(RegisterSchema), registerHandle
 router.post('/login', authRateLimit, validate(LoginSchema), loginHandler)
 router.post('/refresh', validate(RefreshSchema), refreshHandler)
 router.post('/logout', authenticate(), logoutHandler)
+router.post('/forgot-password', authRateLimit, validate(ForgotPasswordSchema), forgotPasswordHandler)
+router.post('/reset-password', authRateLimit, validate(ResetPasswordSchema), resetPasswordHandler)
 
 export default router

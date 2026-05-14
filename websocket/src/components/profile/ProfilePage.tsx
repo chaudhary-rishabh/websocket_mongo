@@ -12,10 +12,8 @@ import Image from 'next/image'
 import { useSession } from 'next-auth/react'
 import { cn } from '@/lib/utils'
 import { logoutAction } from '@/app/actions/auth'
-import { authFetch } from '@/lib/api'
+import { useUpdateProfile } from '@/hooks/queries'
 import { useChatStore } from '@/lib/store'
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -84,9 +82,10 @@ export default function ProfilePage() {
   const [editingBio,     setEditingBio]     = useState(false)
   const [bioInput,       setBioInput]       = useState('')
   const [notif,          setNotif]          = useState(true)
-  const [saving,         setSaving]         = useState(false)
   const [saveError,      setSaveError]      = useState('')
   const [loggingOut,     setLoggingOut]     = useState(false)
+
+  const updateProfile = useUpdateProfile()
 
   useEffect(() => {
     if (session?.user) {
@@ -99,27 +98,12 @@ export default function ProfilePage() {
     }
   }, [session?.user?.displayName, session?.user?.bio])
 
-  const patchMe = async (body: { displayName?: string; bio?: string }) => {
-    if (!session?.accessToken) return
-    setSaving(true)
+  const patchMe = (body: { displayName?: string; bio?: string }) => {
     setSaveError('')
-    try {
-      const res = await authFetch(
-        `${API}/api/v1/users/me`,
-        { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
-        session.accessToken,
-      )
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        setSaveError(json?.error?.message ?? 'Failed to save changes.')
-      } else {
-        await updateSession()
-      }
-    } catch {
-      setSaveError('Network error. Please try again.')
-    } finally {
-      setSaving(false)
-    }
+    updateProfile.mutate(body, {
+      onSuccess: () => { updateSession() },
+      onError: (err) => setSaveError(err.message),
+    })
   }
 
   const saveName = async () => {
@@ -158,7 +142,7 @@ export default function ProfilePage() {
           <ArrowLeft className="w-4 h-4 text-[#6B7280]" />
         </Link>
         <span className="text-sm font-semibold text-[#1F2937]">My Profile</span>
-        {saving && <Loader2 className="w-4 h-4 text-[#3B82F6] animate-spin ml-auto" />}
+        {updateProfile.isPending && <Loader2 className="w-4 h-4 text-[#3B82F6] animate-spin ml-auto" />}
       </div>
 
       <div className="max-w-md mx-auto px-4 py-6 flex flex-col gap-3">

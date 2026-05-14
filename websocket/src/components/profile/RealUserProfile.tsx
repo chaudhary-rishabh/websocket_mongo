@@ -1,43 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { ArrowLeft, MessageCircle, Phone, Clock, AtSign } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { formatTime } from '@/lib/utils'
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
-
-interface ApiUser {
-  _id: string
-  username: string
-  displayName: string
-  avatar?: string
-  isOnline: boolean
-  lastSeen?: string
-}
+import { useUserProfile } from '@/hooks/queries'
+import type { ApiUser } from '@/lib/chat-types'
 
 export default function RealUserProfile({ userId }: { userId: string }) {
-  const { data: session } = useSession()
-  const [user, setUser] = useState<ApiUser | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
-
-  useEffect(() => {
-    if (!session?.accessToken) return
-    fetch(`${API}/api/v1/users/${userId}`, {
-      headers: { Authorization: `Bearer ${session.accessToken}` },
-    })
-      .then((r) => r.json())
-      .then((json) => {
-        if (json.success) setUser(json.data)
-        else setError(true)
-      })
-      .catch(() => setError(true))
-      .finally(() => setLoading(false))
-  }, [userId, session?.accessToken])
+  const { data: user, isLoading: loading, isError: error } = useUserProfile(userId)
 
   if (loading) {
     return (

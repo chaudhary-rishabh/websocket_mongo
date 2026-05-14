@@ -3,9 +3,7 @@
 import { useState, useRef } from 'react'
 import { X, Upload, Loader2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { authFetch } from '@/lib/api'
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
+import { useCreateStory } from '@/hooks/queries'
 
 interface AddStoryModalProps {
   onClose: () => void
@@ -16,9 +14,10 @@ export default function AddStoryModal({ onClose, onSuccess }: AddStoryModalProps
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [caption, setCaption] = useState('')
-  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const createStory = useCreateStory()
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
@@ -32,31 +31,16 @@ export default function AddStoryModal({ onClose, onSuccess }: AddStoryModalProps
     setPreview(URL.createObjectURL(f))
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!file) { setError('Please select an image.'); return }
-    setUploading(true)
     setError('')
-    try {
-      const form = new FormData()
-      form.append('file', file)
-      if (caption.trim()) form.append('caption', caption.trim())
-
-      const res = await authFetch(`${API}/api/v1/stories`, {
-        method: 'POST',
-        body: form,
-      })
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        setError(json?.error?.message ?? 'Upload failed. Please try again.')
-        return
-      }
-      onSuccess()
-      onClose()
-    } catch {
-      setError('Network error. Please try again.')
-    } finally {
-      setUploading(false)
-    }
+    createStory.mutate({ file, caption: caption.trim() || undefined }, {
+      onSuccess: () => {
+        onSuccess()
+        onClose()
+      },
+      onError: (err) => setError(err.message),
+    })
   }
 
   return (
@@ -145,11 +129,11 @@ export default function AddStoryModal({ onClose, onSuccess }: AddStoryModalProps
             {/* Submit */}
             <button
               onClick={handleSubmit}
-              disabled={uploading || !file}
+              disabled={createStory.isPending || !file}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold text-white bg-[#2563EB] hover:bg-[#3B82F6] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
-              {uploading && <Loader2 className="w-4 h-4 animate-spin" />}
-              {uploading ? 'Sharing…' : 'Share to Story'}
+              {createStory.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              {createStory.isPending ? 'Sharing…' : 'Share to Story'}
             </button>
           </div>
         </div>

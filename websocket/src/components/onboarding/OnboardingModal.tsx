@@ -5,9 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Camera, ArrowRight, Check, X, Loader2, Upload } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { cn } from '@/lib/utils'
-import { authFetch } from '@/lib/api'
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
+import { useUploadAvatar, useUpdateProfile } from '@/hooks/queries'
 
 const STORAGE_KEY = 'onboarding_completed'
 
@@ -26,9 +24,10 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [displayName, setDisplayName] = useState('')
   const [bio, setBio] = useState('')
-  const [uploading, setUploading] = useState(false)
-  const [saving, setSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const uploadAvatar = useUploadAvatar()
+  const updateProfile = useUpdateProfile()
 
   useEffect(() => {
     if (session?.user) {
@@ -46,59 +45,31 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
     reader.readAsDataURL(file)
   }
 
-  const uploadAvatar = async (): Promise<string | null> => {
-    if (!avatarFile || !session?.accessToken) return null
-    setUploading(true)
-    try {
-      const form = new FormData()
-      form.append('file', avatarFile)
-      const res = await authFetch(`${API}/api/v1/media/avatar`, {
-        method: 'POST',
-        body: form,
-      }, session.accessToken)
-      const json = await res.json()
-      if (json.success && json.data?.url) return json.data.url as string
-      return null
-    } catch {
-      return null
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  const saveProfile = async (body: { displayName?: string; bio?: string }) => {
-    if (!session?.accessToken) return
-    setSaving(true)
-    try {
-      await authFetch(
-        `${API}/api/v1/users/me`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        },
-        session.accessToken,
-      )
-      await updateSession()
-    } catch {
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleNext = async () => {
+  const handleNext = () => {
     if (step === 'avatar') {
-      if (avatarFile) await uploadAvatar()
+      if (avatarFile) {
+        uploadAvatar.mutate(avatarFile, {
+          onSuccess: () => { updateSession() },
+        })
+      }
       setStep('name')
       return
     }
     if (step === 'name') {
-      if (displayName.trim()) await saveProfile({ displayName: displayName.trim() })
+      if (displayName.trim()) {
+        updateProfile.mutate({ displayName: displayName.trim() }, {
+          onSuccess: () => { updateSession() },
+        })
+      }
       setStep('bio')
       return
     }
     if (step === 'bio') {
-      if (bio.trim()) await saveProfile({ bio: bio.trim() })
+      if (bio.trim()) {
+        updateProfile.mutate({ bio: bio.trim() }, {
+          onSuccess: () => { updateSession() },
+        })
+      }
       setStep('done')
       return
     }
@@ -161,7 +132,7 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
                       userInitials={userInitials}
                       fileInputRef={fileInputRef}
                       onFileSelect={handleFileSelect}
-                      uploading={uploading}
+                      uploading={uploadAvatar.isPending}
                     />
                   )}
 
@@ -169,7 +140,7 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
                     <NameStep
                       displayName={displayName}
                       onChange={setDisplayName}
-                      saving={saving}
+                      saving={updateProfile.isPending}
                     />
                   )}
 
@@ -177,7 +148,7 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
                     <BioStep
                       bio={bio}
                       onChange={setBio}
-                      saving={saving}
+                      saving={updateProfile.isPending}
                     />
                   )}
 
@@ -190,10 +161,10 @@ export default function OnboardingModal({ open, onClose }: OnboardingModalProps)
                     </button>
                     <button
                       onClick={handleNext}
-                      disabled={uploading || saving}
+                      disabled={uploadAvatar.isPending || updateProfile.isPending}
                       className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold text-white bg-[#2563EB] hover:bg-[#3B82F6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                      {(uploading || saving) && <Loader2 className="w-4 h-4 animate-spin" />}
+                      {(uploadAvatar.isPending || updateProfile.isPending) && <Loader2 className="w-4 h-4 animate-spin" />}
                       Continue
                       <ArrowRight className="w-4 h-4" />
                     </button>

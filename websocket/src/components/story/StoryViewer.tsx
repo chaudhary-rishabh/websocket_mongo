@@ -4,9 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { ApiUser, ApiStory } from '@/lib/chat-types'
-import { authFetch } from '@/lib/api'
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
+import { useViewStory } from '@/hooks/queries'
 
 interface StoryViewerProps {
   user: ApiUser
@@ -35,6 +33,8 @@ export default function StoryViewer({
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const startRef = useRef(Date.now())
   const elapsedBeforePause = useRef(0)
+
+  const viewStory = useViewStory()
 
   const currentStory = stories[currentIndex]
 
@@ -68,7 +68,7 @@ export default function StoryViewer({
 
   useEffect(() => {
     if (!currentStory) return
-    authFetch(`${API}/api/v1/stories/${currentStory._id}/view`, { method: 'POST' }).catch(() => {})
+    viewStory.mutate(currentStory._id)
   }, [currentStory?._id])
 
   useEffect(() => {

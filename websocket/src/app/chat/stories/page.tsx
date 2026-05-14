@@ -1,41 +1,21 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { Plus, Camera, Loader2 } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { authFetch } from '@/lib/api'
-import { useChatStore } from '@/lib/store'
 import type { ApiStoryGroup, ApiUser } from '@/lib/chat-types'
+import { useStoryFeed } from '@/hooks/queries'
 import StoryRing from '@/components/story/StoryRing'
 import StoryViewer from '@/components/story/StoryViewer'
 import AddStoryModal from '@/components/story/AddStoryModal'
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
-
 export default function StoriesPage() {
   const { data: session } = useSession()
-  const [groups, setGroups] = useState<ApiStoryGroup[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: groups = [], isLoading: loading, refetch: refetchStories } = useStoryFeed()
   const [viewerOpen, setViewerOpen] = useState(false)
   const [activeGroupIdx, setActiveGroupIdx] = useState(0)
   const [addOpen, setAddOpen] = useState(false)
-
-  const fetchStories = async () => {
-    try {
-      const res = await authFetch(`${API}/api/v1/stories`)
-      const json = await res.json()
-      if (json.success && Array.isArray(json.data)) {
-        setGroups(json.data)
-      }
-    } catch {
-      // silent
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => { fetchStories() }, [])
 
   const openViewer = (idx: number) => {
     setActiveGroupIdx(idx)
@@ -90,7 +70,7 @@ export default function StoriesPage() {
       {addOpen && (
         <AddStoryModal
           onClose={() => setAddOpen(false)}
-          onSuccess={fetchStories}
+          onSuccess={() => refetchStories()}
         />
       )}
 

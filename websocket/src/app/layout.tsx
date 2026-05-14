@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Geist, Inter } from 'next/font/google'
 import { Toaster } from 'sonner'
 import Providers from '@/components/ui/providers'
+import QueryProvider from '@/lib/query-provider'
 import './globals.css'
 
 const geist = Geist({
@@ -25,7 +26,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geist.variable} ${inter.variable} h-full antialiased`}>
       <body className="h-full" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
-        <Providers>{children}</Providers>
+        <QueryProvider>
+          <Providers>{children}</Providers>
+        </QueryProvider>
         <Toaster richColors position="bottom-right" />
       </body>
     </html>

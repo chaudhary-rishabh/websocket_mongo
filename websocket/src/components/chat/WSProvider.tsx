@@ -1,14 +1,12 @@
 'use client'
 
 import { useEffect } from 'react'
-import { toast } from 'sonner'
 import { useSession, signOut } from 'next-auth/react'
 import { wsClient } from '@/lib/ws-client'
 import { useChatStore } from '@/lib/store'
-import { setAuth, clearAuth, authFetch } from '@/lib/api'
+import { setAuth, clearAuth } from '@/lib/api'
+import { useConversations } from '@/hooks/queries'
 import type { ApiMessage, ServerEvent } from '@/lib/chat-types'
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
 
 export default function WSProvider() {
   const { data: session, update } = useSession()
@@ -26,6 +24,12 @@ export default function WSProvider() {
     setUserHasStories,
     clearUserStories,
   } = useChatStore()
+
+  const { data: conversations } = useConversations()
+
+  useEffect(() => {
+    if (conversations) setRealConversations(conversations)
+  }, [conversations, setRealConversations])
 
   useEffect(() => {
     if (!session?.accessToken || !session?.refreshToken) return
@@ -47,18 +51,6 @@ export default function WSProvider() {
       clearAuth()
     }
   }, [session?.accessToken, session?.refreshToken, session?.error, update])
-
-  useEffect(() => {
-    if (!session?.accessToken) return
-    authFetch(`${API}/api/v1/conversations`, {}, session.accessToken)
-      .then((r) => r.json())
-      .then((json) => {
-        if (json.success && Array.isArray(json.data)) {
-          setRealConversations(json.data)
-        }
-      })
-      .catch(() => { toast.error('Failed to load conversations') })
-  }, [session?.accessToken, setRealConversations])
 
   useEffect(() => {
     if (!session?.accessToken) return

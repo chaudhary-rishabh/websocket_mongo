@@ -1,21 +1,19 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Trash2, X } from 'lucide-react'
-import { toast } from 'sonner'
 import { useSession } from 'next-auth/react'
 import { getConversationById, getMessages } from '@/lib/mock-data'
 import { useChatStore } from '@/lib/store'
 import { wsClient } from '@/lib/ws-client'
-import { authFetch } from '@/lib/api'
+import { useConversation, useMessages } from '@/hooks/queries'
 import type { ApiConversation, ApiMessage, PopulatedMember } from '@/lib/chat-types'
 import ChatHeader from './ChatHeader'
 import MessageList from './MessageList'
 import MessageInput from './MessageInput'
 import type { Conversation } from '@/lib/schemas'
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
 const REAL_ID = /^[0-9a-f]{24}$/i
 
 interface ChatViewProps {
@@ -32,75 +30,33 @@ export default function ChatView({ conversationId }: ChatViewProps) {
     prependMessages,
     typingUsers,
     realConversations,
-    messagePagination,
-    setMessagePagination,
     clearUnreadCount,
   } = useChatStore()
 
-  const [apiConversation, setApiConversation] = useState<ApiConversation | null>(null)
+  const {
+    data: messagesData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useMessages(isReal ? conversationId : '')
+
+  const { data: apiConversation } = useConversation(isReal ? conversationId : '')
+
   const [isSelectMode,       setIsSelectMode]       = useState(false)
   const [selectedIds,        setSelectedIds]        = useState<Set<string>>(new Set())
   const [deletedIds,         setDeletedIds]         = useState<Set<string>>(new Set())
-  const [isLoadingMore,      setIsLoadingMore]      = useState(false)
   const [messageSearchQuery, setMessageSearchQuery] = useState('')
   const [isMessageSearchOpen, setIsMessageSearchOpen] = useState(false)
 
-  const pagination = messagePagination[conversationId]
-
   useEffect(() => {
-    if (!isReal || !session?.accessToken) return
-
-    const cached = realConversations.find((c) => c._id === conversationId)
-    if (cached) setApiConversation(cached)
-
-    authFetch(
-      `${API}/api/v1/conversations/${conversationId}/messages?limit=30`,
-      {},
-      session.accessToken,
-    )
-      .then((r) => r.json())
-      .then((json) => {
-        if (!json.success) return
-        const { items, hasMore, nextCursor } = json.data as {
-          items: ApiMessage[]
-          hasMore: boolean
-          nextCursor?: string
-        }
-        prependMessages(conversationId, items)
-        setMessagePagination(conversationId, { hasMore, nextCursor })
-      })
-      .catch(() => { toast.error('Failed to load messages') })
-
-    if (!cached) {
-      authFetch(`${API}/api/v1/conversations/${conversationId}`, {}, session.accessToken)
-        .then((r) => r.json())
-        .then((json) => { if (json.success) setApiConversation(json.data as ApiConversation) })
-        .catch(() => { toast.error('Failed to load conversation') })
-    }
-  }, [isReal, conversationId, session?.accessToken, realConversations, prependMessages, setMessagePagination])
+    if (!isReal || !messagesData) return
+    const allMessages = messagesData.pages.flatMap((p) => p.items)
+    prependMessages(conversationId, allMessages)
+  }, [isReal, conversationId, messagesData, prependMessages])
 
   const loadMore = useCallback(() => {
-    if (!pagination?.hasMore || !pagination.nextCursor || isLoadingMore || !session?.accessToken) return
-    setIsLoadingMore(true)
-    authFetch(
-      `${API}/api/v1/conversations/${conversationId}/messages?cursor=${pagination.nextCursor}&limit=30`,
-      {},
-      session.accessToken,
-    )
-      .then((r) => r.json())
-      .then((json) => {
-        if (!json.success) return
-        const { items, hasMore, nextCursor } = json.data as {
-          items: ApiMessage[]
-          hasMore: boolean
-          nextCursor?: string
-        }
-        prependMessages(conversationId, items)
-        setMessagePagination(conversationId, { hasMore, nextCursor })
-      })
-      .catch(() => { toast.error('Failed to load older messages') })
-      .finally(() => setIsLoadingMore(false))
-  }, [conversationId, isLoadingMore, pagination, prependMessages, session?.accessToken, setMessagePagination])
+    if (hasNextPage && !isFetchingNextPage) fetchNextPage()
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   useEffect(() => {
     if (!isReal) return
@@ -270,8 +226,8 @@ export default function ChatView({ conversationId }: ChatViewProps) {
           deletedIds={deletedIds}
           typingUsernames={typingUsernames}
           myUserId={session?.user?.id}
-          hasMore={pagination?.hasMore ?? false}
-          isLoadingMore={isLoadingMore}
+          hasMore={hasNextPage}
+          isLoadingMore={isFetchingNextPage}
           onLoadMore={loadMore}
           searchQuery={messageSearchQuery}
         />

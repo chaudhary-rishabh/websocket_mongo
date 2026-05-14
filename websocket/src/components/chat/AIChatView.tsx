@@ -11,16 +11,17 @@ import {
 import { useChatStore } from '@/lib/store'
 import Avatar from '@/components/ui/Avatar'
 import MessageInput from './MessageInput'
+import {
+  useAISessions,
+  useAIMessages,
+  useCreateAISession,
+  useDeleteAISession,
+  useClearAISessions,
+  useSearchUsers,
+} from '@/hooks/queries'
+import type { AISession } from '@/hooks/queries/use-ai'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
-
-interface AiSessionSummary {
-  _id: string
-  title?: string
-  messageCount: number
-  lastActivityAt: string
-  createdAt: string
-}
 
 interface AiMessage {
   id: string
@@ -83,10 +84,10 @@ function formatRelative(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
 }
 
-function groupSessions(sessions: AiSessionSummary[]) {
+function groupSessions(sessions: AISession[]) {
   const todayStr     = new Date().toDateString()
   const yesterdayStr = new Date(Date.now() - 86_400_000).toDateString()
-  const groups: { label: string; items: AiSessionSummary[] }[] = []
+  const groups: { label: string; items: AISession[] }[] = []
   const today     = sessions.filter((s) => new Date(s.lastActivityAt).toDateString() === todayStr)
   const yesterday = sessions.filter((s) => new Date(s.lastActivityAt).toDateString() === yesterdayStr)
   const earlier   = sessions.filter((s) => {
@@ -103,165 +104,100 @@ export default function AIChatView() {
   const { data: session } = useSession()
   const { toggleSidebar } = useChatStore()
 
-  const [sessions,      setSessions]      = useState<AiSessionSummary[]>([])
   const [currentSessId, setCurrentSessId] = useState<string | null>(null)
   const [panelOpen,     setPanelOpen]     = useState(true)
   const [clearConfirm,  setClearConfirm]  = useState(false)
 
   const [messages,     setMessages]     = useState<AiMessage[]>([])
-  const [msgsLoading,  setMsgsLoading]  = useState(false)
   const [isStreaming,  setIsStreaming]   = useState(false)
 
-  const [analyzeOpen,   setAnalyzeOpen]   = useState(false)
-  const [userSearchQ,   setUserSearchQ]   = useState('')
-  const [userResults,   setUserResults]   = useState<SearchUser[]>([])
-  const [searchLoading, setSearchLoading] = useState(false)
+  const [analyzeOpen,     setAnalyzeOpen]     = useState(false)
+  const [userSearchQ,     setUserSearchQ]     = useState('')
+  const [debouncedSearchQ, setDebouncedSearchQ] = useState('')
 
   const bottomRef      = useRef<HTMLDivElement>(null)
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const { data: sessions = [] } = useAISessions()
+  const { data: apiMessages = [], isLoading: msgsLoading } = useAIMessages(currentSessId ?? '')
+  const createSession = useCreateAISession()
+  const deleteSession = useDeleteAISession()
+  const clearSessions = useClearAISessions()
+  const { data: searchData, isLoading: searchLoading } = useSearchUsers(debouncedSearchQ)
+  const userResults: SearchUser[] = (searchData?.users ?? []) as unknown as SearchUser[]
+
+  // Initialize current session on first load
   useEffect(() => {
-    if (!session?.accessToken) return
-    const token = session.accessToken
-    let cancelled = false
+    if (!currentSessId && sessions.length > 0) {
+      setCurrentSessId(sessions[0]._id)
+    }
+  }, [sessions, currentSessId])
 
-    ;(async () => {
-      try {
-        const r    = await fetch(`${API}/api/v1/ai/sessions`, { headers: { Authorization: `Bearer ${token}` } })
-        const json = await r.json() as { success: boolean; data: { sessions: AiSessionSummary[] } }
-        if (cancelled || !json.success) return
-
-        const loaded = json.data.sessions
-        setSessions(loaded)
-
-        if (loaded.length > 0) {
-          const first = loaded[0]
-          setCurrentSessId(first._id)
-          setMsgsLoading(true)
-          const mr   = await fetch(`${API}/api/v1/ai/messages?sessionId=${first._id}&limit=100`, { headers: { Authorization: `Bearer ${token}` } })
-          const mj   = await mr.json() as { success: boolean; data: { messages: { _id: string; role: 'user' | 'assistant'; content: string }[] } }
-          if (!cancelled && mj.success) {
-            setMessages(mj.data.messages.map((m) => ({ id: m._id, role: m.role, content: m.content })))
-          }
-          setMsgsLoading(false)
-        }
-      } catch {
-        toast.error('Failed to load AI sessions')
-      }
-    })()
-
-    return () => { cancelled = true }
-  }, [session?.accessToken])
+  // Sync API messages to local state when session changes
+  useEffect(() => {
+    setMessages(apiMessages.map((m) => ({ id: m._id, role: m.role, content: m.content })))
+  }, [apiMessages])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Debounced search for analyze modal
   useEffect(() => {
-    if (!analyzeOpen || !session?.accessToken) return
+    if (!analyzeOpen) return
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
-    searchTimerRef.current = setTimeout(async () => {
-      setSearchLoading(true)
-      try {
-        const r    = await fetch(`${API}/api/v1/users/search?q=${encodeURIComponent(userSearchQ)}`, { headers: { Authorization: `Bearer ${session.accessToken}` } })
-        const json = await r.json()
-        if (json.success) setUserResults(json.data.items ?? [])
-      } catch {
-      } finally { setSearchLoading(false) }
-    }, 300)
+    searchTimerRef.current = setTimeout(() => setDebouncedSearchQ(userSearchQ), 300)
     return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current) }
-  }, [userSearchQ, analyzeOpen, session?.accessToken])
-
-  const loadSession = useCallback(async (sessionId: string) => {
-    if (!session?.accessToken) return
-    setCurrentSessId(sessionId)
-    setMessages([])
-    setMsgsLoading(true)
-    try {
-      const r    = await fetch(`${API}/api/v1/ai/messages?sessionId=${sessionId}&limit=100`, { headers: { Authorization: `Bearer ${session.accessToken}` } })
-      const json = await r.json() as { success: boolean; data: { messages: { _id: string; role: 'user' | 'assistant'; content: string }[] } }
-      if (json.success) {
-        setMessages(json.data.messages.map((m) => ({ id: m._id, role: m.role, content: m.content })))
-      }
-    } catch {
-      toast.error('Failed to load chat history')
-    } finally { setMsgsLoading(false) }
-  }, [session?.accessToken])
-
-  const createNewSession = useCallback(async (): Promise<string | null> => {
-    if (!session?.accessToken) return null
-
-    if (currentSessId && messages.length === 0) {
-      setPanelOpen(true)
-      return currentSessId
-    }
-
-    try {
-      const r    = await fetch(`${API}/api/v1/ai/sessions`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session.accessToken}` },
-      })
-      const json = await r.json() as { success: boolean; data: { session: AiSessionSummary } }
-      if (!json.success) throw new Error('Session creation failed')
-      const newSess = json.data.session
-      setSessions((prev) => [newSess, ...prev])
-      setCurrentSessId(newSess._id)
-      setMessages([])
-      setPanelOpen(true)
-      return newSess._id
-    } catch {
-      toast.error('Failed to create new chat')
-      return null
-    }
-  }, [session?.accessToken, currentSessId, messages.length])
-
-  const handleNewChat = useCallback(async () => {
-    await createNewSession()
-  }, [createNewSession])
+  }, [userSearchQ, analyzeOpen])
 
   const handleDeleteSession = useCallback(async (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!session?.accessToken) return
-    try {
-      await fetch(`${API}/api/v1/ai/sessions/${sessionId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${session.accessToken}` } })
-    } catch {
-      toast.error('Failed to delete session')
-      return
-    }
-
-    setSessions((prev) => {
-      const remaining = prev.filter((s) => s._id !== sessionId)
-      if (currentSessId === sessionId) {
-        if (remaining.length > 0) {
-          void loadSession(remaining[0]._id)
-        } else {
-          setCurrentSessId(null)
-          setMessages([])
+    deleteSession.mutate(sessionId, {
+      onSuccess: () => {
+        if (currentSessId === sessionId) {
+          const remaining = sessions.filter((s) => s._id !== sessionId)
+          if (remaining.length > 0) {
+            setCurrentSessId(remaining[0]._id)
+          } else {
+            setCurrentSessId(null)
+            setMessages([])
+          }
         }
-      }
-      return remaining
+      },
     })
-  }, [session?.accessToken, currentSessId, loadSession])
+  }, [currentSessId, sessions, deleteSession])
 
-  const handleClearAll = useCallback(async () => {
-    if (!session?.accessToken) return
-    try {
-      await fetch(`${API}/api/v1/ai/sessions`, { method: 'DELETE', headers: { Authorization: `Bearer ${session.accessToken}` } })
-    } catch {
-      toast.error('Failed to clear history')
-      setClearConfirm(false)
-      return
-    }
-    setSessions([])
-    setCurrentSessId(null)
-    setMessages([])
-    setClearConfirm(false)
-  }, [session?.accessToken])
+  const handleClearAll = useCallback(() => {
+    clearSessions.mutate(undefined, {
+      onSuccess: () => {
+        setCurrentSessId(null)
+        setMessages([])
+        setClearConfirm(false)
+      },
+      onError: () => {
+        toast.error('Failed to clear history')
+        setClearConfirm(false)
+      },
+    })
+  }, [clearSessions])
 
   const ensureSession = useCallback(async (): Promise<string | null> => {
     if (currentSessId) return currentSessId
-    return createNewSession()
-  }, [currentSessId, createNewSession])
+    return new Promise((resolve) => {
+      createSession.mutate(undefined, {
+        onSuccess: (newSess) => {
+          setCurrentSessId(newSess._id)
+          setMessages([])
+          setPanelOpen(true)
+          resolve(newSess._id)
+        },
+        onError: () => {
+          toast.error('Failed to create new chat')
+          resolve(null)
+        },
+      })
+    })
+  }, [currentSessId, createSession])
 
   const runStream = useCallback(async (
     userLabel: string,
@@ -305,11 +241,6 @@ export default function AIChatView() {
     } finally {
       setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, streaming: false } : m))
       setIsStreaming(false)
-      setSessions((prev) => prev.map((s) =>
-        s._id === sessionId
-          ? { ...s, title: s.title || userLabel.slice(0, 75), lastActivityAt: new Date().toISOString(), messageCount: s.messageCount + 2 }
-          : s,
-      ))
     }
   }, [isStreaming, session?.accessToken, ensureSession])
 
@@ -353,7 +284,7 @@ export default function AIChatView() {
           <div className="flex items-center justify-between px-3 pt-4 pb-2 flex-shrink-0">
             <p className="text-[10px] font-bold text-[#2563EB] uppercase tracking-widest">Chats</p>
             <button
-              onClick={handleNewChat}
+              onClick={() => createSession.mutate(undefined)}
               title="New Chat"
               className="p-1.5 rounded-xl hover:bg-[#DBEAFE] text-[#2563EB] transition-colors"
             >
@@ -377,7 +308,7 @@ export default function AIChatView() {
                       key={s._id}
                       session={s}
                       isActive={s._id === currentSessId}
-                      onSelect={() => { if (s._id !== currentSessId) void loadSession(s._id) }}
+                      onSelect={() => { if (s._id !== currentSessId) setCurrentSessId(s._id) }}
                       onDelete={(e) => void handleDeleteSession(s._id, e)}
                     />
                   ))}
@@ -466,7 +397,7 @@ export default function AIChatView() {
             </div>
 
             <button
-              onClick={() => void createNewSession()}
+              onClick={() => createSession.mutate(undefined)}
               disabled={isStreaming}
               title="New Chat"
               className="p-2 rounded-full hover:bg-[#DBEAFE] transition-colors text-[#2563EB] flex-shrink-0 disabled:opacity-40"
@@ -541,7 +472,7 @@ export default function AIChatView() {
                       </button>
 
                       <button
-                        onClick={() => { setAnalyzeOpen(true); setUserSearchQ(''); setUserResults([]) }}
+                        onClick={() => { setAnalyzeOpen(true); setUserSearchQ(''); setDebouncedSearchQ('') }}
                         disabled={isStreaming}
                         className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white border border-[#BFDBFE] hover:bg-[#EFF6FF] transition-colors text-left disabled:opacity-50"
                       >
@@ -640,7 +571,7 @@ export default function AIChatView() {
 function SessionItem({
   session, isActive, onSelect, onDelete,
 }: {
-  session: AiSessionSummary
+  session: AISession
   isActive: boolean
   onSelect: () => void
   onDelete: (e: React.MouseEvent) => void

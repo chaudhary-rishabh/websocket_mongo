@@ -1,14 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Search, Loader2, Users, ArrowLeft, Check, Plus } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { useChatStore } from '@/lib/store'
 import Avatar from '@/components/ui/Avatar'
 import { useRouter } from 'next/navigation'
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
+import { useSearchUsers, useCreateDM, useCreateGroup } from '@/hooks/queries'
 
 interface ApiUser {
   _id: string
@@ -22,99 +21,66 @@ type View = 'search' | 'create-group'
 type Tab = 'people' | 'groups'
 
 export default function SearchModal() {
-  const { isSearchOpen, setSearchOpen, setActiveConversationId, setRealConversations, realConversations } = useChatStore()
+  const { isSearchOpen, setSearchOpen, setActiveConversationId, realConversations } = useChatStore()
   const { data: session } = useSession()
   const router = useRouter()
 
   const [view, setView]             = useState<View>('search')
   const [tab, setTab]               = useState<Tab>('people')
   const [query, setQuery]           = useState('')
-  const [results, setResults]       = useState<ApiUser[]>([])
-  const [loading, setLoading]       = useState(false)
-  const [starting, setStarting]     = useState<string | null>(null)
+  const [debouncedQuery, setDebouncedQuery] = useState('')
 
   // Group creation state
   const [groupName, setGroupName]   = useState('')
   const [selected, setSelected]     = useState<ApiUser[]>([])
-  const [creating, setCreating]     = useState(false)
   const [createError, setCreateError] = useState('')
 
   const inputRef      = useRef<HTMLInputElement>(null)
   const groupNameRef  = useRef<HTMLInputElement>(null)
   const debounceRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // ── User search (q='' returns all users from backend) ───────────────────
-  const searchUsers = useCallback(async (q: string) => {
-    if (!session?.accessToken) { setResults([]); return }
-    setLoading(true)
-    try {
-      const url = q.trim()
-        ? `${API}/api/v1/users/search?q=${encodeURIComponent(q.trim())}`
-        : `${API}/api/v1/users/search`
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${session.accessToken}` } })
-      const json = await res.json()
-      setResults(json.success && Array.isArray(json.data?.items) ? (json.data.items as ApiUser[]) : [])
-    } catch { setResults([]) }
-    finally { setLoading(false) }
-  }, [session?.accessToken])
+  const { data: searchData, isLoading: searchLoading } = useSearchUsers(debouncedQuery)
+  const createDM = useCreateDM()
+  const createGroup = useCreateGroup()
 
-  // Reset + load all users when modal opens
+  // Debounce search
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => setDebouncedQuery(query), 300)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [query])
+
+  const results: ApiUser[] = searchData?.users ?? []
+
+  // Reset on modal open
   useEffect(() => {
     if (isSearchOpen) {
       setTimeout(() => inputRef.current?.focus(), 100)
-      setQuery(''); setTab('people'); setView('search')
+      setQuery(''); setDebouncedQuery(''); setTab('people'); setView('search')
       setGroupName(''); setSelected([]); setCreateError('')
-      searchUsers('')
     }
-  }, [isSearchOpen, searchUsers])
+  }, [isSearchOpen])
 
   useEffect(() => {
     if (view === 'create-group') {
-      setQuery('')
-      searchUsers('')
+      setQuery(''); setDebouncedQuery('')
       setTimeout(() => groupNameRef.current?.focus(), 80)
     }
-  }, [view, searchUsers])
+  }, [view])
 
   const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const q = e.target.value
-    setQuery(q)
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => searchUsers(q), 300)
+    setQuery(e.target.value)
   }
 
-  // ── Refresh conversation list helper ────────────────────────────────────
-  const refreshConvs = useCallback(async () => {
-    if (!session?.accessToken) return
-    try {
-      const r = await fetch(`${API}/api/v1/conversations`, {
-        headers: { Authorization: `Bearer ${session.accessToken}` },
-      })
-      const j = await r.json()
-      if (j.success && Array.isArray(j.data)) setRealConversations(j.data)
-    } catch { /* ignore */ }
-  }, [session?.accessToken, setRealConversations])
-
   // ── Start DM ─────────────────────────────────────────────────────────────
-  const handleSelectPerson = async (user: ApiUser) => {
-    if (!session?.accessToken) return
-    setStarting(user._id)
-    try {
-      const res = await fetch(`${API}/api/v1/conversations`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.accessToken}` },
-        body: JSON.stringify({ type: 'dm', members: [user._id] }),
-      })
-      const json = await res.json()
-      if (json.success && json.data?._id) {
-        await refreshConvs()
-        setActiveConversationId(json.data._id)
-        router.push(`/chat/${json.data._id}`)
-      }
-    } finally {
-      setStarting(null)
-      setSearchOpen(false)
-    }
+  const handleSelectPerson = (user: ApiUser) => {
+    createDM.mutate(user._id, {
+      onSuccess: (data) => {
+        setActiveConversationId(data._id)
+        router.push(`/chat/${data._id}`)
+        setSearchOpen(false)
+      },
+    })
   }
 
   // ── Group member toggle ───────────────────────────────────────────────────
@@ -127,32 +93,21 @@ export default function SearchModal() {
   }
 
   // ── Create group ─────────────────────────────────────────────────────────
-  const handleCreateGroup = async () => {
+  const handleCreateGroup = () => {
     if (!groupName.trim()) { setCreateError('Group name is required.'); return }
     if (selected.length < 1) { setCreateError('Add at least one member.'); return }
-    if (!session?.accessToken) return
-    setCreating(true); setCreateError('')
-    try {
-      const res = await fetch(`${API}/api/v1/conversations`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.accessToken}` },
-        body: JSON.stringify({
-          type: 'group',
-          name: groupName.trim(),
-          members: selected.map((u) => u._id),
-        }),
-      })
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        setCreateError(json?.error?.message ?? 'Failed to create group.')
-        return
-      }
-      await refreshConvs()
-      setActiveConversationId(json.data._id)
-      router.push(`/chat/${json.data._id}`)
-      setSearchOpen(false)
-    } catch { setCreateError('Network error. Please try again.') }
-    finally { setCreating(false) }
+    setCreateError('')
+    createGroup.mutate(
+      { name: groupName.trim(), members: selected.map((u) => u._id) },
+      {
+        onSuccess: (data) => {
+          setActiveConversationId(data._id)
+          router.push(`/chat/${data._id}`)
+          setSearchOpen(false)
+        },
+        onError: (err) => setCreateError(err.message),
+      },
+    )
   }
 
   const close = () => setSearchOpen(false)
@@ -186,11 +141,11 @@ export default function SearchModal() {
                   key="search"
                   tab={tab} setTab={setTab}
                   query={query} onQueryChange={handleQueryChange}
-                  results={results} loading={loading} starting={starting}
+                  results={results} loading={searchLoading} starting={createDM.isPending ? (createDM.variables ?? null) : null}
                   realGroups={realConversations.filter((c) => c.type === 'group')}
                   inputRef={inputRef}
                   onSelectPerson={handleSelectPerson}
-                  onClearQuery={() => { setQuery(''); searchUsers('') }}
+                  onClearQuery={() => { setQuery(''); setDebouncedQuery('') }}
                   onNewGroup={() => setView('create-group')}
                   onClose={close}
                   onSelectGroup={(id) => {
@@ -205,13 +160,13 @@ export default function SearchModal() {
                   groupName={groupName} onGroupNameChange={setGroupName}
                   groupNameRef={groupNameRef}
                   query={query} onQueryChange={handleQueryChange}
-                  results={results} loading={loading}
+                  results={results} loading={searchLoading}
                   selected={selected} onToggleMember={toggleMember}
-                  creating={creating} createError={createError}
+                  creating={createGroup.isPending} createError={createError}
                   inputRef={inputRef}
                   onBack={() => { setView('search'); setSelected([]); setGroupName('') }}
                   onCreateGroup={handleCreateGroup}
-                  onClearQuery={() => { setQuery(''); setResults([]) }}
+                  onClearQuery={() => { setQuery(''); setDebouncedQuery('') }}
                 />
               )}
             </AnimatePresence>

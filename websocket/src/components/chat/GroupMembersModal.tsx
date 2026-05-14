@@ -11,8 +11,8 @@ import { getUserById } from '@/lib/mock-data'
 import Avatar from '@/components/ui/Avatar'
 import { cn } from '@/lib/utils'
 import { useChatStore } from '@/lib/store'
+import { useSearchUsers, useAddMembers, useRemoveMember, useLeaveGroup } from '@/hooks/queries'
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
 const REAL_ID = /^[0-9a-f]{24}$/i
 
 interface SearchUser {
@@ -38,7 +38,7 @@ export default function GroupMembersModal({
 }: GroupMembersModalProps) {
   const { data: session } = useSession()
   const router = useRouter()
-  const { setRealConversations, realConversations } = useChatStore()
+  const { realConversations } = useChatStore()
   const isReal = REAL_ID.test(conversation.id)
 
   // Build initial member list — real populated data or mock fallback
@@ -59,33 +59,26 @@ export default function GroupMembersModal({
   const [members, setMembers]         = useState<PopulatedMember[]>(initialMembers)
   const [view, setView]               = useState<'list' | 'add'>('list')
   const [searchQ, setSearchQ]         = useState('')
-  const [searchResults, setResults]   = useState<SearchUser[]>([])
+  const [debouncedQ, setDebouncedQ]   = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [leaveLoading, setLeaveLoad]  = useState(false)
-  const [addLoading, setAddLoading]   = useState(false)
 
   const onlineMembers  = members.filter((m) =>  m.isOnline)
   const offlineMembers = members.filter((m) => !m.isOnline)
   const amIAdmin       = members.find((m) => m.isMe)?.isAdmin ?? false
 
-  // Search users when in add-member view
+  const { data: searchData } = useSearchUsers(debouncedQ)
+  const addMembers = useAddMembers()
+  const removeMember = useRemoveMember()
+  const leaveGroup = useLeaveGroup()
+
   useEffect(() => {
-    if (view !== 'add' || !session?.accessToken) return
-    const t = setTimeout(async () => {
-      try {
-        const r = await fetch(
-          `${API}/api/v1/users/search?q=${encodeURIComponent(searchQ)}`,
-          { headers: { Authorization: `Bearer ${session.accessToken}` } },
-        )
-        const json = await r.json()
-        if (json.success) {
-          const existing = new Set(members.map((m) => m.id))
-          setResults((json.data.items ?? []).filter((u: SearchUser) => !existing.has(u._id)))
-        }
-      } catch {/* ignore */}
-    }, 300)
+    if (view !== 'add') return
+    const t = setTimeout(() => setDebouncedQ(searchQ), 300)
     return () => clearTimeout(t)
-  }, [searchQ, view, session?.accessToken, members])
+  }, [searchQ, view])
+
+  const existingIds = new Set(members.map((m) => m.id))
+  const searchResults: SearchUser[] = (searchData?.users ?? []).filter((u: SearchUser) => !existingIds.has(u._id))
 
   const toggleSelect = (id: string) =>
     setSelectedIds((prev) => {
@@ -94,62 +87,29 @@ export default function GroupMembersModal({
       return next
     })
 
-  // ── Leave group ───────────────────────────────────────────────────────────
-  const handleLeave = async () => {
-    if (!session?.accessToken || !isReal) return
-    setLeaveLoad(true)
-    try {
-      const r = await fetch(
-        `${API}/api/v1/conversations/${conversation.id}/leave`,
-        { method: 'DELETE', headers: { Authorization: `Bearer ${session.accessToken}` } },
-      )
-      if (r.ok) {
-        setRealConversations(realConversations.filter((c) => c._id !== conversation.id))
+  const handleLeave = () => {
+    if (!isReal) return
+    leaveGroup.mutate(conversation.id, {
+      onSuccess: () => {
         onClose()
         router.push('/chat')
-      }
-    } catch {/* ignore */}
-    finally { setLeaveLoad(false) }
+      },
+    })
   }
 
-  // ── Remove a member (admin only) ──────────────────────────────────────────
-  const handleRemove = async (memberId: string) => {
-    if (!session?.accessToken || !isReal) return
-    try {
-      const r = await fetch(
-        `${API}/api/v1/conversations/${conversation.id}/members/${memberId}`,
-        { method: 'DELETE', headers: { Authorization: `Bearer ${session.accessToken}` } },
-      )
-      if (r.ok) {
+  const handleRemove = (memberId: string) => {
+    if (!isReal) return
+    removeMember.mutate({ convId: conversation.id, memberId }, {
+      onSuccess: () => {
         setMembers((prev) => prev.filter((m) => m.id !== memberId))
-        setRealConversations(
-          realConversations.map((c) =>
-            c._id === conversation.id
-              ? { ...c, members: c.members.filter((m) => m._id !== memberId) }
-              : c,
-          ),
-        )
-      }
-    } catch {/* ignore */}
+      },
+    })
   }
 
-  // ── Add members ───────────────────────────────────────────────────────────
-  const handleAddMembers = async () => {
-    if (!session?.accessToken || selectedIds.size === 0) return
-    setAddLoading(true)
-    try {
-      const r = await fetch(
-        `${API}/api/v1/conversations/${conversation.id}/members`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.accessToken}`,
-          },
-          body: JSON.stringify({ userIds: [...selectedIds] }),
-        },
-      )
-      if (r.ok) {
+  const handleAddMembers = () => {
+    if (selectedIds.size === 0) return
+    addMembers.mutate({ convId: conversation.id, userIds: [...selectedIds] }, {
+      onSuccess: () => {
         const added: PopulatedMember[] = searchResults
           .filter((u) => selectedIds.has(u._id))
           .map((u) => ({
@@ -164,12 +124,11 @@ export default function GroupMembersModal({
         setMembers((prev) => [...prev, ...added])
         setSelectedIds(new Set())
         setView('list')
-      }
-    } catch {/* ignore */}
-    finally { setAddLoading(false) }
+      },
+    })
   }
 
-  const closeAdd = () => { setView('list'); setSelectedIds(new Set()); setSearchQ(''); setResults([]) }
+  const closeAdd = () => { setView('list'); setSelectedIds(new Set()); setSearchQ(''); setDebouncedQ('') }
 
   return (
     <AnimatePresence>
@@ -236,13 +195,13 @@ export default function GroupMembersModal({
                   {isReal && (
                     <button
                       onClick={handleLeave}
-                      disabled={leaveLoading}
+                      disabled={leaveGroup.isPending}
                       className="flex-1 flex items-center justify-center gap-2 border border-red-300/60 hover:bg-red-50 text-red-500 text-xs font-semibold py-2.5 rounded-xl transition-colors duration-200 disabled:opacity-50"
                     >
-                      {leaveLoading
+                      {leaveGroup.isPending
                         ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         : <LogOut className="w-3.5 h-3.5" />}
-                      {leaveLoading ? 'Leaving…' : 'Leave Group'}
+                      {leaveGroup.isPending ? 'Leaving…' : 'Leave Group'}
                     </button>
                   )}
                 </div>
@@ -270,10 +229,10 @@ export default function GroupMembersModal({
                   <div className="px-5 pb-3 flex-shrink-0">
                     <button
                       onClick={handleAddMembers}
-                      disabled={addLoading}
+                      disabled={addMembers.isPending}
                       className="w-full flex items-center justify-center gap-2 bg-[#2563EB] hover:bg-[#3B82F6] disabled:opacity-50 text-white text-xs font-semibold py-2.5 rounded-xl transition-colors"
                     >
-                      {addLoading
+                      {addMembers.isPending
                         ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         : <UserPlus className="w-3.5 h-3.5" />}
                       Add {selectedIds.size} member{selectedIds.size > 1 ? 's' : ''}

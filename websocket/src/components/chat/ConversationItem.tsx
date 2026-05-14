@@ -8,7 +8,10 @@ import Badge from '@/components/ui/Badge'
 import StoryRing from '@/components/story/StoryRing'
 import { useChatStore } from '@/lib/store'
 import { useSession } from 'next-auth/react'
+import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/lib/query-keys'
 import { authFetch } from '@/lib/api'
+import type { ApiStoryGroup } from '@/lib/chat-types'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
 
@@ -32,6 +35,7 @@ export default function ConversationItem({
   const { name, avatar, initials, id, lastMessage, lastMessageTime, unreadCount, isPinned, lastMessageSentByMe, type, members } = conversation
   const { storiesByUser, setActiveStoryGroup, setStoryViewerOpen } = useChatStore()
   const { data: session } = useSession()
+  const queryClient = useQueryClient()
 
   const isDm = type === 'direct'
   const otherUserId = isDm ? members.find((m) => m !== session?.user?.id) : null
@@ -47,18 +51,17 @@ export default function ConversationItem({
     if (!otherUserId || !hasStories) return
     void (async () => {
     try {
-      const res = await authFetch(`${API}/api/v1/stories/user/${otherUserId}`)
-      const json = await res.json()
-      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-        const userRes = await authFetch(`${API}/api/v1/stories`)
-        const userJson = await userRes.json()
-        if (userJson.success && Array.isArray(userJson.data)) {
-          const groups = userJson.data as Array<{ user: { _id: string }; stories: unknown[] }>
-          const group = groups.find((g) => g.user._id === otherUserId)
-          if (group) {
-            setActiveStoryGroup(group as never)
-            setStoryViewerOpen(true)
-          }
+      let groups: ApiStoryGroup[] | undefined = queryClient.getQueryData(queryKeys.stories.all)
+      if (!groups) {
+        const res = await authFetch(`${API}/api/v1/stories`)
+        const json = await res.json()
+        if (json.success && Array.isArray(json.data)) groups = json.data
+      }
+      if (groups) {
+        const group = groups.find((g) => g.user._id === otherUserId)
+        if (group) {
+          setActiveStoryGroup(group)
+          setStoryViewerOpen(true)
         }
       }
     } catch {

@@ -10,6 +10,7 @@ import ConversationList from './ConversationList'
 import SearchModal from './SearchModal'
 import StoryRing from '@/components/story/StoryRing'
 import { logoutAction } from '@/app/actions/auth'
+import { useStoryPresence } from '@/hooks/queries'
 import { authFetch } from '@/lib/api'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
@@ -78,14 +79,11 @@ function SidebarContent({
     setIsSelectMode(false)
   }
 
+  const { data: presence } = useStoryPresence()
+
   useEffect(() => {
-    authFetch(`${API}/api/v1/stories/presence`)
-      .then((r) => r.json())
-      .then((json) => {
-        if (json.success && Array.isArray(json.data)) setStoryPresence(json.data)
-      })
-      .catch(() => {})
-  }, [setStoryPresence])
+    if (presence) setStoryPresence(presence)
+  }, [presence, setStoryPresence])
 
   const storyUsers = Object.entries(storiesByUser)
     .filter(([userId]) => userId !== session?.user?.id)
